@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+
+import '../../services/auth_service.dart';
 import 'verification_page.dart';
 
 class SignupPage extends StatefulWidget {
@@ -62,18 +63,12 @@ class _SignupPageState extends State<SignupPage> {
 
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => VerificationPage(
-            email: email,
-          ),
-        ),
+        MaterialPageRoute(builder: (context) => VerificationPage(email: email)),
       );
     } catch (e) {
       if (!mounted) return;
 
-      showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      showMessage(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) {
         setState(() {
@@ -84,19 +79,14 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-      ),
+      appBar: AppBar(title: const Text('Create Account')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -107,19 +97,14 @@ class _SignupPageState extends State<SignupPage> {
 
               const Text(
                 'Create your FarmTab account',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
 
               const Text(
                 'Enter your details to get started.',
-                style: TextStyle(
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontSize: 16),
               ),
 
               const SizedBox(height: 30),
@@ -153,9 +138,7 @@ class _SignupPageState extends State<SignupPage> {
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      obscurePassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
+                      obscurePassword ? Icons.visibility : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {
@@ -182,8 +165,7 @@ class _SignupPageState extends State<SignupPage> {
                     ),
                     onPressed: () {
                       setState(() {
-                        obscureConfirmPassword =
-                            !obscureConfirmPassword;
+                        obscureConfirmPassword = !obscureConfirmPassword;
                       });
                     },
                   ),

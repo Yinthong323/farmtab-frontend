@@ -2,15 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../services/auth_service.dart';
+import '../onboarding/organisation_selection_page.dart';
+import '../../services/auth_service.dart';
 
 class VerificationPage extends StatefulWidget {
   final String email;
 
-  const VerificationPage({
-    super.key,
-    required this.email,
-  });
+  const VerificationPage({super.key, required this.email});
 
   @override
   State<VerificationPage> createState() => _VerificationPageState();
@@ -47,26 +45,23 @@ class _VerificationPageState extends State<VerificationPage> {
       remainingSeconds = 60;
     });
 
-    timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        if (remainingSeconds <= 1) {
-          timer.cancel();
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (remainingSeconds <= 1) {
+        timer.cancel();
 
-          if (mounted) {
-            setState(() {
-              remainingSeconds = 0;
-            });
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              remainingSeconds--;
-            });
-          }
+        if (mounted) {
+          setState(() {
+            remainingSeconds = 0;
+          });
         }
-      },
-    );
+      } else {
+        if (mounted) {
+          setState(() {
+            remainingSeconds--;
+          });
+        }
+      }
+    });
   }
 
   Future<void> handleVerify() async {
@@ -82,30 +77,32 @@ class _VerificationPageState extends State<VerificationPage> {
     });
 
     try {
-      await AuthService.verifyEmail(
+      final result = await AuthService.verifyEmail(
         email: widget.email,
         code: code,
       );
+
+      final setupToken = result['setup_token'];
 
       if (!mounted) return;
 
       showMessage('Email verified successfully!');
 
-      // Organisation page will be added later.
-      // For now, go back to signup/login flow.
-      await Future.delayed(
-        const Duration(seconds: 1),
-      );
+      await Future.delayed(const Duration(seconds: 1));
 
       if (!mounted) return;
 
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              OrganisationSelectionPage(accessToken: setupToken),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 
-      showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      showMessage(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) {
         setState(() {
@@ -125,23 +122,17 @@ class _VerificationPageState extends State<VerificationPage> {
     });
 
     try {
-      await AuthService.resendCode(
-        email: widget.email,
-      );
+      await AuthService.resendCode(email: widget.email);
 
       if (!mounted) return;
 
-      showMessage(
-        'A new verification code has been sent.',
-      );
+      showMessage('A new verification code has been sent.');
 
       startCountdown();
     } catch (e) {
       if (!mounted) return;
 
-      showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      showMessage(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) {
         setState(() {
@@ -152,11 +143,8 @@ class _VerificationPageState extends State<VerificationPage> {
   }
 
   void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -164,9 +152,7 @@ class _VerificationPageState extends State<VerificationPage> {
     final canResend = remainingSeconds == 0 && !isResending;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Verify Email'),
-      ),
+      appBar: AppBar(title: const Text('Verify Email')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -175,20 +161,14 @@ class _VerificationPageState extends State<VerificationPage> {
             children: [
               const SizedBox(height: 40),
 
-              const Icon(
-                Icons.mark_email_unread_outlined,
-                size: 80,
-              ),
+              const Icon(Icons.mark_email_unread_outlined, size: 80),
 
               const SizedBox(height: 25),
 
               const Text(
                 'Verify Your Email',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 15),
@@ -196,9 +176,7 @@ class _VerificationPageState extends State<VerificationPage> {
               Text(
                 'We sent a 6-digit verification code to\n${widget.email}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                ),
+                style: const TextStyle(fontSize: 16),
               ),
 
               const SizedBox(height: 35),
@@ -220,9 +198,7 @@ class _VerificationPageState extends State<VerificationPage> {
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: isVerifying
-                      ? null
-                      : handleVerify,
+                  onPressed: isVerifying ? null : handleVerify,
                   child: isVerifying
                       ? const CircularProgressIndicator()
                       : const Text(
@@ -235,18 +211,12 @@ class _VerificationPageState extends State<VerificationPage> {
               const SizedBox(height: 20),
 
               TextButton(
-                onPressed: canResend
-                    ? handleResend
-                    : null,
+                onPressed: canResend ? handleResend : null,
                 child: isResending
                     ? const Text('Sending...')
                     : remainingSeconds > 0
-                        ? Text(
-                            'Resend Code (${remainingSeconds}s)',
-                          )
-                        : const Text(
-                            'Resend Code',
-                          ),
+                    ? Text('Resend Code (${remainingSeconds}s)')
+                    : const Text('Resend Code'),
               ),
             ],
           ),
