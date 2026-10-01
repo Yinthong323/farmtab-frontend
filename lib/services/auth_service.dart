@@ -202,4 +202,62 @@ class AuthService {
 
     throw Exception(data['detail'] ?? 'Unable to resend reset code.');
   }
+
+  // ============================================================
+  // GET CURRENT USER PROFILE
+  // ============================================================
+
+  static Future<Map<String, dynamic>> getCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      throw Exception('No access token found.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/me'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return data;
+    }
+
+    throw Exception(data['detail'] ?? 'Unable to load profile.');
+  }
+
+  // ============================================================
+  // UPDATE PROFILE
+  // ============================================================
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String username,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      throw Exception('No access token found.');
+    }
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/me/profile'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'username': username}),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return data;
+    }
+
+    throw Exception(data['detail'] ?? 'Unable to update profile.');
+  }
 }

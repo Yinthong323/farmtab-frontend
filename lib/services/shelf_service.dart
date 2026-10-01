@@ -181,7 +181,6 @@ class ShelfService {
 
     throw Exception(data['detail'] ?? 'Unable to load latest sensor reading.');
   }
-
   // ============================================================
   // UPDATE SHELF
   // ============================================================
@@ -204,22 +203,18 @@ class ShelfService {
 
     request.headers['Authorization'] = 'Bearer $token';
 
-    // -----------------------------
-    // Normal shelf information
-    // -----------------------------
+    // ------------------------------------------------------------
+    // Text fields
+    // ------------------------------------------------------------
 
     request.fields['name'] = name;
-
-    if (description != null && description.trim().isNotEmpty) {
-      request.fields['description'] = description.trim();
-    }
-
+    request.fields['description'] = description ?? '';
     request.fields['crop_type'] = cropType;
     request.fields['device_serial_number'] = deviceSerialNumber;
 
-    // -----------------------------
-    // Optional new image
-    // -----------------------------
+    // ------------------------------------------------------------
+    // Add new shelf image if the admin selected one
+    // ------------------------------------------------------------
 
     if (imagePath != null && imagePath.isNotEmpty) {
       final extension = imagePath.split('.').last.toLowerCase();
@@ -233,9 +228,7 @@ class ShelfService {
       } else if (extension == 'webp') {
         mimeType = 'webp';
       } else {
-        throw Exception(
-          'Unsupported image format. Please select JPG, PNG, or WEBP.',
-        );
+        throw Exception('Only JPG, PNG, and WEBP images are allowed.');
       }
 
       request.files.add(
@@ -247,22 +240,23 @@ class ShelfService {
       );
     }
 
-    // -----------------------------
+    // ------------------------------------------------------------
     // Send request
-    // -----------------------------
+    // ------------------------------------------------------------
 
     final streamedResponse = await request.send();
 
-    final response = await http.Response.fromStream(streamedResponse);
+    final responseBody = await streamedResponse.stream.bytesToString();
 
-    final data = jsonDecode(response.body);
+    final data = jsonDecode(responseBody);
 
-    if (response.statusCode == 200) {
+    if (streamedResponse.statusCode == 200) {
       return Map<String, dynamic>.from(data);
     }
 
-    throw Exception(data['detail'] ?? 'Unable to update Shelf.');
+    throw Exception(data['detail'] ?? 'Unable to update shelf.');
   }
+
   // ============================================================
   // DELETE SHELF
   // ============================================================
@@ -343,5 +337,60 @@ class ShelfService {
     }
 
     throw Exception(data['detail'] ?? 'Unable to update Shelf thresholds.');
+  }
+
+  Future<List<Map<String, dynamic>>> getSensorHistory({
+    required int siteId,
+    required int shelfId,
+    required DateTime startDate,
+    required DateTime endDate,
+    required int intervalMinutes,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Access token not found. Please login again.');
+    }
+
+    final startDateString =
+        '${startDate.year.toString().padLeft(4, '0')}-'
+        '${startDate.month.toString().padLeft(2, '0')}-'
+        '${startDate.day.toString().padLeft(2, '0')}';
+
+    final endDateString =
+        '${endDate.year.toString().padLeft(4, '0')}-'
+        '${endDate.month.toString().padLeft(2, '0')}-'
+        '${endDate.day.toString().padLeft(2, '0')}';
+
+    final uri =
+        Uri.parse('$baseUrl/sites/$siteId/shelves/$shelfId/sensor-readings')
+            .replace(
+              queryParameters: {
+                'start_date': startDateString,
+                'end_date': endDateString,
+                'interval_minutes': intervalMinutes.toString(),
+              },
+            );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(data);
+    }
+
+    if (data is Map<String, dynamic> && data['detail'] != null) {
+      throw Exception(data['detail']);
+    }
+
+    throw Exception('Unable to load sensor history.');
   }
 }
