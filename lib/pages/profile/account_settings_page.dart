@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/auth_service.dart';
+
 // ─────────────────────────────────────────────────────────────
 // FARMTAB DESIGN TOKENS (same system used across the app)
 // ─────────────────────────────────────────────────────────────
@@ -142,7 +144,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     }
 
     if (newPassword == current) {
-      _showMessage('New password must be different from the current one.');
+      _showMessage('New password must be different from the current password.');
       return;
     }
 
@@ -150,105 +152,196 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       _isChangingPassword = true;
     });
 
-    // Simulate a brief delay so the loading state is visible,
-    // since there's no real request to await yet.
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      await AuthService.changePassword(
+        currentPassword: current,
+        newPassword: newPassword,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _isChangingPassword = false;
-    });
+      setState(() {
+        _isChangingPassword = false;
+      });
 
-    _showMessage(
-      'Change password isn\'t connected to the backend yet — '
-      'no changes were saved.',
-    );
+      _currentPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+
+      _showMessage('Password changed successfully.');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isChangingPassword = false;
+      });
+
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _showDeleteAccountConfirmation() async {
+    final confirmTextController = TextEditingController();
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: FarmTabTheme.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: FarmTabTheme.alertRed.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.warning_rounded,
-                  size: 18,
-                  color: FarmTabTheme.alertRed,
-                ),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Case-sensitive exact match, same convention used by
+            // GitHub/AWS-style "type to confirm" deletion dialogs —
+            // makes it much harder to confirm by accident.
+            final canDelete = confirmTextController.text.trim() == 'DELETE';
+
+            return AlertDialog(
+              backgroundColor: FarmTabTheme.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Delete Account?',
-                  style: FarmTabTheme.font(
-                    size: 16.5,
-                    weight: FontWeight.w700,
-                    color: FarmTabTheme.textH,
+              title: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: FarmTabTheme.alertRed.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.warning_rounded,
+                      size: 18,
+                      color: FarmTabTheme.alertRed,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Delete Account?',
+                      style: FarmTabTheme.font(
+                        size: 16.5,
+                        weight: FontWeight.w700,
+                        color: FarmTabTheme.textH,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This will permanently delete your account and remove '
+                    'your access to all organisations. This action cannot '
+                    'be undone.',
+                    style: FarmTabTheme.font(
+                      size: 13.5,
+                      weight: FontWeight.w400,
+                      color: FarmTabTheme.textB,
+                      height: 1.5,
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Type ',
+                          style: FarmTabTheme.font(
+                            size: 13,
+                            weight: FontWeight.w500,
+                            color: FarmTabTheme.textB,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'DELETE',
+                          style: FarmTabTheme.font(
+                            size: 13,
+                            weight: FontWeight.w800,
+                            color: FarmTabTheme.alertRed,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' below to confirm.',
+                          style: FarmTabTheme.font(
+                            size: 13,
+                            weight: FontWeight.w500,
+                            color: FarmTabTheme.textB,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  TextField(
+                    controller: confirmTextController,
+                    autofocus: true,
+                    style: FarmTabTheme.font(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: FarmTabTheme.textH,
+                    ),
+                    decoration: FarmTabTheme.fieldDecoration('DELETE'),
+                    onChanged: (_) {
+                      // Re-check on every keystroke so the button
+                      // enables/disables live as the user types.
+                      setDialogState(() {});
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(
+                    'Cancel',
+                    style: FarmTabTheme.font(
+                      size: 13.5,
+                      weight: FontWeight.w600,
+                      color: FarmTabTheme.textM,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          content: Text(
-            'This will permanently delete your account and remove your '
-            'access to all organisations. This action cannot be undone.',
-            style: FarmTabTheme.font(
-              size: 13.5,
-              weight: FontWeight.w400,
-              color: FarmTabTheme.textB,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(
-                'Cancel',
-                style: FarmTabTheme.font(
-                  size: 13.5,
-                  weight: FontWeight.w600,
-                  color: FarmTabTheme.textM,
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FarmTabTheme.alertRed,
+                    foregroundColor: FarmTabTheme.white,
+                    disabledBackgroundColor: FarmTabTheme.alertRed.withOpacity(
+                      0.35,
+                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  // Only enabled once the typed text exactly
+                  // matches "DELETE" — this is the actual
+                  // accidental-deletion safeguard.
+                  onPressed: canDelete
+                      ? () => Navigator.pop(dialogContext, true)
+                      : null,
+                  child: Text(
+                    'Delete Account',
+                    style: FarmTabTheme.font(
+                      size: 13.5,
+                      weight: FontWeight.w600,
+                      color: FarmTabTheme.white,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FarmTabTheme.alertRed,
-                foregroundColor: FarmTabTheme.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(
-                'Delete Account',
-                style: FarmTabTheme.font(
-                  size: 13.5,
-                  weight: FontWeight.w600,
-                  color: FarmTabTheme.white,
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
+
+    confirmTextController.dispose();
 
     if (confirmed != true || !mounted) return;
 

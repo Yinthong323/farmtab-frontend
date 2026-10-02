@@ -109,6 +109,40 @@ class GrowingCycleService {
     throw Exception(data['detail'] ?? 'Unable to start growing cycle.');
   }
 
+  // ============================================================
+  // UPDATE GROWING CYCLE TARGET DAYS
+  // ============================================================
+
+  Future<Map<String, dynamic>> updateGrowingCycleDays({
+    required int siteId,
+    required int shelfId,
+    required int cycleId,
+    required int targetHarvestDays,
+  }) async {
+    final token = await _getAccessToken();
+
+    final response = await http.put(
+      Uri.parse(
+        '$baseUrl/sites/$siteId/shelves/$shelfId/growing-cycles/$cycleId/target-days',
+      ),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'target_harvest_days': targetHarvestDays}),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    throw Exception(
+      data['detail'] ?? 'Unable to update growing cycle target days.',
+    );
+  }
+
   Future<Map<String, dynamic>> stopGrowingCycle({
     required int siteId,
     required int shelfId,

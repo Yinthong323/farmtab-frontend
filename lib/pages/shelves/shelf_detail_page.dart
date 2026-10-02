@@ -369,6 +369,122 @@
 //     }
 //   }
 
+//   Future<void> _editGrowingCycleDays() async {
+//     if (_activeGrowingCycle == null) return;
+
+//     final currentTargetDays =
+//         int.tryParse(
+//           _activeGrowingCycle!['target_harvest_days']?.toString() ?? '',
+//         ) ??
+//         1;
+
+//     final controller = TextEditingController(
+//       text: currentTargetDays.toString(),
+//     );
+
+//     final newTargetDays = await showDialog<int>(
+//       context: context,
+//       builder: (dialogContext) {
+//         return AlertDialog(
+//           backgroundColor: FarmTabTheme.white,
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(16),
+//           ),
+//           title: Text(
+//             'Edit Growing Days',
+//             style: FarmTabTheme.font(
+//               size: 16,
+//               weight: FontWeight.w700,
+//               color: FarmTabTheme.textH,
+//             ),
+//           ),
+//           content: TextField(
+//             controller: controller,
+//             keyboardType: TextInputType.number,
+//             autofocus: true,
+//             decoration: InputDecoration(
+//               labelText: 'Target growing days',
+//               hintText: 'e.g. 30',
+//               border: OutlineInputBorder(
+//                 borderRadius: BorderRadius.circular(10),
+//               ),
+//             ),
+//           ),
+//           actions: [
+//             TextButton(
+//               onPressed: () {
+//                 Navigator.pop(dialogContext);
+//               },
+//               child: Text(
+//                 'Cancel',
+//                 style: FarmTabTheme.font(
+//                   size: 13.5,
+//                   weight: FontWeight.w600,
+//                   color: FarmTabTheme.textM,
+//                 ),
+//               ),
+//             ),
+//             ElevatedButton(
+//               style: FarmTabTheme.primaryButton,
+//               onPressed: () {
+//                 final days = int.tryParse(controller.text.trim());
+
+//                 if (days == null || days < 1) {
+//                   ScaffoldMessenger.of(context).showSnackBar(
+//                     const SnackBar(
+//                       content: Text('Please enter a valid number of days.'),
+//                     ),
+//                   );
+//                   return;
+//                 }
+
+//                 Navigator.pop(dialogContext, days);
+//               },
+//               child: Text(
+//                 'Save',
+//                 style: FarmTabTheme.font(
+//                   size: 13.5,
+//                   weight: FontWeight.w600,
+//                   color: FarmTabTheme.white,
+//                 ),
+//               ),
+//             ),
+//           ],
+//         );
+//       },
+//     );
+
+//     controller.dispose();
+
+//     if (newTargetDays == null) return;
+
+//     final cycleId = _activeGrowingCycle!['id'];
+
+//     try {
+//       await _growingCycleService.updateGrowingCycleDays(
+//         siteId: widget.shelf['site_id'],
+//         shelfId: widget.shelf['id'],
+//         cycleId: cycleId,
+//         targetHarvestDays: newTargetDays,
+//       );
+
+//       await _loadActiveGrowingCycle();
+
+//       if (!mounted) return;
+
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(
+//           content: Text('Growing cycle target changed to $newTargetDays days.'),
+//         ),
+//       );
+//     } catch (e) {
+//       if (!mounted) return;
+
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(content: Text('Failed to update growing days: $e')),
+//       );
+//     }
+//   }
 //   // ------------------------------------------------------------
 //   // WebSocket
 //   // ------------------------------------------------------------
@@ -413,6 +529,12 @@
 //               _isSensorLive = true;
 //               _isConnectingSensor = false;
 //             });
+
+//             // A new live reading is exactly the moment a new alert
+//             // notification might have just been created server-side
+//             // — so re-check unread status right now instead of
+//             // waiting for the user to leave and reopen this page.
+//             _loadUnreadNotificationStatus();
 //           } catch (e) {
 //             debugPrint('Invalid WebSocket message: $e');
 //           }
@@ -1174,9 +1296,25 @@
 //           ),
 
 //           const SizedBox(height: 20),
-
 //           Row(
 //             children: [
+//               Expanded(
+//                 child: OutlinedButton(
+//                   onPressed: _editGrowingCycleDays,
+//                   style: FarmTabTheme.outlinedButton,
+//                   child: Text(
+//                     'Edit Days',
+//                     style: FarmTabTheme.font(
+//                       size: 13,
+//                       weight: FontWeight.w600,
+//                       color: FarmTabTheme.grove,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+
+//               const SizedBox(width: 8),
+
 //               Expanded(
 //                 child: OutlinedButton(
 //                   onPressed: () {
@@ -1194,7 +1332,7 @@
 //                 ),
 //               ),
 
-//               const SizedBox(width: 12),
+//               const SizedBox(width: 8),
 
 //               Expanded(
 //                 child: OutlinedButton(
@@ -1212,6 +1350,43 @@
 //               ),
 //             ],
 //           ),
+//           // Row(
+//           //   children: [
+//           //     Expanded(
+//           //       child: OutlinedButton(
+//           //         onPressed: () {
+//           //           _showComingSoon('Harvest');
+//           //         },
+//           //         style: FarmTabTheme.outlinedButton,
+//           //         child: Text(
+//           //           'Harvest',
+//           //           style: FarmTabTheme.font(
+//           //             size: 13,
+//           //             weight: FontWeight.w600,
+//           //             color: FarmTabTheme.grove,
+//           //           ),
+//           //         ),
+//           //       ),
+//           //     ),
+
+//           //     const SizedBox(width: 12),
+
+//           //     Expanded(
+//           //       child: OutlinedButton(
+//           //         onPressed: () => _showStopCycleConfirmation(),
+//           //         style: FarmTabTheme.dangerOutlinedButton,
+//           //         child: Text(
+//           //           'Stop Cycle',
+//           //           style: FarmTabTheme.font(
+//           //             size: 13,
+//           //             weight: FontWeight.w600,
+//           //             color: FarmTabTheme.alertRed,
+//           //           ),
+//           //         ),
+//           //       ),
+//           //     ),
+//           //   ],
+//           // ),
 //         ],
 //       ),
 //     );
@@ -4790,6 +4965,122 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
     }
   }
 
+  Future<void> _editGrowingCycleDays() async {
+    if (_activeGrowingCycle == null) return;
+
+    final currentTargetDays =
+        int.tryParse(
+          _activeGrowingCycle!['target_harvest_days']?.toString() ?? '',
+        ) ??
+        1;
+
+    final controller = TextEditingController(
+      text: currentTargetDays.toString(),
+    );
+
+    final newTargetDays = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: FarmTabTheme.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Edit Growing Days',
+            style: FarmTabTheme.font(
+              size: 16,
+              weight: FontWeight.w700,
+              color: FarmTabTheme.textH,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Target growing days',
+              hintText: 'e.g. 30',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: Text(
+                'Cancel',
+                style: FarmTabTheme.font(
+                  size: 13.5,
+                  weight: FontWeight.w600,
+                  color: FarmTabTheme.textM,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: FarmTabTheme.primaryButton,
+              onPressed: () {
+                final days = int.tryParse(controller.text.trim());
+
+                if (days == null || days < 1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid number of days.'),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(dialogContext, days);
+              },
+              child: Text(
+                'Save',
+                style: FarmTabTheme.font(
+                  size: 13.5,
+                  weight: FontWeight.w600,
+                  color: FarmTabTheme.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (newTargetDays == null) return;
+
+    final cycleId = _activeGrowingCycle!['id'];
+
+    try {
+      await _growingCycleService.updateGrowingCycleDays(
+        siteId: widget.shelf['site_id'],
+        shelfId: widget.shelf['id'],
+        cycleId: cycleId,
+        targetHarvestDays: newTargetDays,
+      );
+
+      await _loadActiveGrowingCycle();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Growing cycle target changed to $newTargetDays days.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update growing days: $e')),
+      );
+    }
+  }
   // ------------------------------------------------------------
   // WebSocket
   // ------------------------------------------------------------
@@ -5529,118 +5820,148 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
       progress = (growthDay / targetDaysInt).clamp(0.0, 1.0);
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: FarmTabTheme.cardDecoration,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: FarmTabTheme.cardDecoration,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Progress ring
-              _GrowthProgressRing(progress: progress, growthDay: growthDay),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ── Progress ring
+                  _GrowthProgressRing(progress: progress, growthDay: growthDay),
 
-              const SizedBox(width: 18),
+                  const SizedBox(width: 18),
 
-              // ── Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: FarmTabTheme.mist,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                  // ── Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: FarmTabTheme.mist,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            cropType,
+                            style: FarmTabTheme.font(
+                              size: 11.5,
+                              weight: FontWeight.w700,
+                              color: FarmTabTheme.grove,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Text(
+                          'Day $growthDay of ${targetDaysInt ?? '--'}',
+                          style: FarmTabTheme.font(
+                            size: 16,
+                            weight: FontWeight.w700,
+                            color: FarmTabTheme.textH,
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        _cycleDateRow(
+                          Icons.play_circle_outline_rounded,
+                          'Started',
+                          _formatCycleDate(startDate),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        _cycleDateRow(
+                          Icons.flag_outlined,
+                          'Target',
+                          _formatCycleDate(targetHarvestDate),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        _showComingSoon('Harvest');
+                      },
+                      style: FarmTabTheme.outlinedButton,
                       child: Text(
-                        cropType,
+                        'Harvest',
                         style: FarmTabTheme.font(
-                          size: 11.5,
-                          weight: FontWeight.w700,
+                          size: 13,
+                          weight: FontWeight.w600,
                           color: FarmTabTheme.grove,
                         ),
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 10),
+                  const SizedBox(width: 12),
 
-                    Text(
-                      'Day $growthDay of ${targetDaysInt ?? '--'}',
-                      style: FarmTabTheme.font(
-                        size: 16,
-                        weight: FontWeight.w700,
-                        color: FarmTabTheme.textH,
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showStopCycleConfirmation(),
+                      style: FarmTabTheme.dangerOutlinedButton,
+                      child: Text(
+                        'Stop Cycle',
+                        style: FarmTabTheme.font(
+                          size: 13,
+                          weight: FontWeight.w600,
+                          color: FarmTabTheme.alertRed,
+                        ),
                       ),
                     ),
-
-                    const SizedBox(height: 10),
-
-                    _cycleDateRow(
-                      Icons.play_circle_outline_rounded,
-                      'Started',
-                      _formatCycleDate(startDate),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    _cycleDateRow(
-                      Icons.flag_outlined,
-                      'Target',
-                      _formatCycleDate(targetHarvestDate),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
+        ),
 
-          const SizedBox(height: 20),
-
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    _showComingSoon('Harvest');
-                  },
-                  style: FarmTabTheme.outlinedButton,
-                  child: Text(
-                    'Harvest',
-                    style: FarmTabTheme.font(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: FarmTabTheme.grove,
-                    ),
-                  ),
+        // ── Edit (pencil) button — top-right corner of the card.
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _editGrowingCycleDays,
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  color: FarmTabTheme.mist,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.edit_rounded,
+                  size: 16,
+                  color: FarmTabTheme.grove,
                 ),
               ),
-
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => _showStopCycleConfirmation(),
-                  style: FarmTabTheme.dangerOutlinedButton,
-                  child: Text(
-                    'Stop Cycle',
-                    style: FarmTabTheme.font(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: FarmTabTheme.alertRed,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

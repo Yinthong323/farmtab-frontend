@@ -105,13 +105,13 @@ class OrganisationService {
   // REQUEST TO JOIN
   // Uses access token
   // ============================================================
-
   Future<Map<String, dynamic>> requestToJoin({
     required int organisationId,
+    required String setupToken,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/organisations/$organisationId/join'),
-      headers: await _accessHeaders(),
+      headers: _setupHeaders(setupToken),
     );
 
     final data = jsonDecode(response.body);
@@ -122,6 +122,23 @@ class OrganisationService {
 
     throw Exception(data['detail'] ?? 'Unable to send join request.');
   }
+
+  // Future<Map<String, dynamic>> requestToJoin({
+  //   required int organisationId,
+  // }) async {
+  //   final response = await http.post(
+  //     Uri.parse('$baseUrl/organisations/$organisationId/join'),
+  //     headers: await _accessHeaders(),
+  //   );
+
+  //   final data = jsonDecode(response.body);
+
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     return data;
+  //   }
+
+  //   throw Exception(data['detail'] ?? 'Unable to send join request.');
+  // }
 
   // ============================================================
   // CANCEL JOIN REQUEST
