@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://98.88.222.75:8000';
+  static const String baseUrl = 'http://cyphyai.usm.my:6000';
 
   // ============================================================
   // SIGN UP

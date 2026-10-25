@@ -685,7 +685,7 @@ class _SitesPageState extends State<SitesPage> {
                     height: double.infinity,
                     child: hasImage
                         ? Image.network(
-                            'http://98.88.222.75:8000${site['image']}',
+                            'http://cyphyai.usm.my:6000${site['image']}',
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
@@ -872,7 +872,7 @@ class _SitesPageState extends State<SitesPage> {
                 existingImageUrl:
                     (site['image'] != null &&
                         site['image'].toString().isNotEmpty)
-                    ? 'http://98.88.222.75:8000${site['image']}'
+                    ? 'http://cyphyai.usm.my:6000${site['image']}'
                     : null,
                 onImagePicked: (img) =>
                     setDialogState(() => selectedImage = img),

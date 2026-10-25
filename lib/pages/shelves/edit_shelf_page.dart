@@ -50,7 +50,7 @@ class _EditShelfPageState extends State<EditShelfPage>
   bool _isSavingInformation = false;
   bool _isSavingThresholds = false;
 
-  static const String baseUrl = 'http://98.88.222.75:8000';
+  static const String baseUrl = 'http://cyphyai.usm.my:6000';
 
   @override
   void initState() {

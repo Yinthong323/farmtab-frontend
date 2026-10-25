@@ -27,7 +27,7 @@
 //   final ShelfService _shelfService = ShelfService();
 //   final ImagePicker _imagePicker = ImagePicker();
 
-//   static const String baseUrl = 'http://98.88.222.75:8000';
+//   static const String baseUrl = 'http://cyphyai.usm.my:6000';
 
 //   late TextEditingController _nameController;
 //   late TextEditingController _descriptionController;
@@ -656,7 +656,7 @@ class _ShelfSettingsPageState extends State<ShelfSettingsPage> {
   final ShelfService _shelfService = ShelfService();
   final ImagePicker _imagePicker = ImagePicker();
 
-  static const String baseUrl = 'http://98.88.222.75:8000';
+  static const String baseUrl = 'http://cyphyai.usm.my:6000';
 
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;

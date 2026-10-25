@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class GlobalAlertService {
-  static const String websocketUrl = 'ws://98.88.222.75:8000/ws/alerts';
+  static const String websocketUrl = 'ws://cyphyai.usm.my:6000/ws/alerts';
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;

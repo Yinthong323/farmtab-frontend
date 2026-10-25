@@ -1359,7 +1359,7 @@ class _ShelvesPageState extends State<ShelvesPage> {
                 color: const Color(0xFFF2F2F2),
                 child: hasImage
                     ? Image.network(
-                        'http://98.88.222.75:8000${shelf['image']}',
+                        'http://cyphyai.usm.my:6000${shelf['image']}',
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: double.infinity,

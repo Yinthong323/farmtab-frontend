@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceService {
-  static const String baseUrl = 'http://98.88.222.75:8000';
+  static const String baseUrl = 'http://cyphyai.usm.my:6000';
 
   Future<String> _getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
