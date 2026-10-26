@@ -1,6 +1,7 @@
 // import 'package:flutter/material.dart';
 
 // import '../../services/layer_service.dart';
+// import 'layer_detail_page.dart';
 // import 'shelf_detail_page.dart' show FarmTabTheme;
 
 // class GrowthMonitoringPage extends StatefulWidget {
@@ -230,188 +231,213 @@
 //     return Container(
 //       clipBehavior: Clip.antiAlias,
 //       decoration: FarmTabTheme.cardDecoration,
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           // ── Header: layer name, camera code, cycle status
-//           Padding(
-//             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-//             child: Row(
-//               children: [
-//                 Text(
-//                   name,
-//                   style: FarmTabTheme.font(
-//                     size: 15,
-//                     weight: FontWeight.w700,
-//                     color: FarmTabTheme.textH,
-//                   ),
-//                 ),
-//                 const SizedBox(width: 8),
-//                 _chip(code, FarmTabTheme.textM, const Color(0xFFF2F2F2)),
-//                 const Spacer(),
-//                 _buildCycleChip(cycle),
-//                 if (cycle != null)
-//                   PopupMenuButton<String>(
-//                     padding: EdgeInsets.zero,
-//                     icon: const Icon(
-//                       Icons.more_vert_rounded,
-//                       size: 20,
-//                       color: FarmTabTheme.textM,
+//       child: Material(
+//         color: Colors.transparent,
+//         child: InkWell(
+//           // Tapping the card opens the Layer Detail page
+//           onTap: () => _openLayerDetail(layer),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               // ── Header: layer name, camera code, cycle status
+//               Padding(
+//                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+//                 child: Row(
+//                   children: [
+//                     Text(
+//                       name,
+//                       style: FarmTabTheme.font(
+//                         size: 15,
+//                         weight: FontWeight.w700,
+//                         color: FarmTabTheme.textH,
+//                       ),
 //                     ),
-//                     onSelected: (value) {
-//                       if (value == 'abort') {
-//                         _confirmAbortCycle(layer, cycle);
-//                       }
-//                     },
-//                     itemBuilder: (context) => [
-//                       PopupMenuItem<String>(
-//                         value: 'abort',
-//                         child: Text(
-//                           'Abort cycle',
-//                           style: FarmTabTheme.font(
-//                             size: 13.5,
-//                             weight: FontWeight.w500,
-//                             color: FarmTabTheme.alertRed,
-//                           ),
+//                     const SizedBox(width: 8),
+//                     _chip(code, FarmTabTheme.textM, const Color(0xFFF2F2F2)),
+//                     const Spacer(),
+//                     _buildCycleChip(cycle),
+//                     if (cycle != null)
+//                       PopupMenuButton<String>(
+//                         padding: EdgeInsets.zero,
+//                         icon: const Icon(
+//                           Icons.more_vert_rounded,
+//                           size: 20,
+//                           color: FarmTabTheme.textM,
 //                         ),
-//                       ),
-//                     ],
-//                   ),
-//               ],
-//             ),
-//           ),
-
-//           // ── Image (4:3, same shape as the camera photos)
-//           AspectRatio(
-//             aspectRatio: 4 / 3,
-//             child: image == null
-//                 ? _buildNoImage(hasCycle: cycle != null)
-//                 : Stack(
-//                     fit: StackFit.expand,
-//                     children: [
-//                       _buildImage(
-//                         name,
-//                         image,
-//                         showOverlay
-//                             ? overlayUrl
-//                             : image['image_url'].toString(),
-//                       ),
-
-//                       // Photo / Canopy switch, top-right of the image
-//                       if (hasOverlay)
-//                         Positioned(
-//                           top: 10,
-//                           right: 10,
-//                           child: Material(
-//                             color: Colors.black.withOpacity(0.55),
-//                             borderRadius: BorderRadius.circular(20),
-//                             child: InkWell(
-//                               borderRadius: BorderRadius.circular(20),
-//                               onTap: () {
-//                                 setState(() {
-//                                   if (showOverlay) {
-//                                     _overlayLayers.remove(layerId);
-//                                   } else {
-//                                     _overlayLayers.add(layerId);
-//                                   }
-//                                 });
-//                               },
-//                               child: Padding(
-//                                 padding: const EdgeInsets.symmetric(
-//                                   horizontal: 11,
-//                                   vertical: 7,
-//                                 ),
-//                                 child: Row(
-//                                   mainAxisSize: MainAxisSize.min,
-//                                   children: [
-//                                     Icon(
-//                                       showOverlay
-//                                           ? Icons.photo_outlined
-//                                           : Icons.layers_rounded,
-//                                       size: 14,
-//                                       color: Colors.white,
-//                                     ),
-//                                     const SizedBox(width: 6),
-//                                     Text(
-//                                       showOverlay ? 'Photo' : 'Canopy',
-//                                       style: FarmTabTheme.font(
-//                                         size: 11.5,
-//                                         weight: FontWeight.w600,
-//                                         color: Colors.white,
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
+//                         onSelected: (value) {
+//                           if (value == 'abort') {
+//                             _confirmAbortCycle(layer, cycle);
+//                           }
+//                         },
+//                         itemBuilder: (context) => [
+//                           PopupMenuItem<String>(
+//                             value: 'abort',
+//                             child: Text(
+//                               'Abort cycle',
+//                               style: FarmTabTheme.font(
+//                                 size: 13.5,
+//                                 weight: FontWeight.w500,
+//                                 color: FarmTabTheme.alertRed,
 //                               ),
 //                             ),
 //                           ),
-//                         ),
-//                     ],
-//                   ),
-//           ),
-
-//           // ── Canopy measurement
-//           if (image != null)
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-//               child: _buildCanopyStats(canopy),
-//             ),
-
-//           // ── Footer: capture time
-//           Padding(
-//             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-//             child: _buildImageFooter(image, hasCycle: cycle != null),
-//           ),
-
-//           // ── Start button (no cycle) or cycle details (active cycle)
-//           if (cycle == null)
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-//               child: SizedBox(
-//                 width: double.infinity,
-//                 child: ElevatedButton(
-//                   onPressed: () => _showStartCycleDialog(layer),
-//                   style: FarmTabTheme.primaryButton,
-//                   child: Text(
-//                     'Start Growing Cycle',
-//                     style: FarmTabTheme.font(
-//                       size: 13,
-//                       weight: FontWeight.w600,
-//                       color: FarmTabTheme.white,
+//                         ],
+//                       ),
+//                     const Icon(
+//                       Icons.chevron_right_rounded,
+//                       size: 22,
+//                       color: FarmTabTheme.textM,
 //                     ),
-//                   ),
+//                   ],
 //                 ),
 //               ),
-//             )
-//           else
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   _buildCycleInfo(cycle),
-//                   const SizedBox(height: 12),
-//                   SizedBox(
+
+//               // ── Image (4:3, same shape as the camera photos)
+//               AspectRatio(
+//                 aspectRatio: 4 / 3,
+//                 child: image == null
+//                     ? _buildNoImage(hasCycle: cycle != null)
+//                     : Stack(
+//                         fit: StackFit.expand,
+//                         children: [
+//                           _buildImage(
+//                             name,
+//                             image,
+//                             (showOverlay && overlayUrl != null)
+//                                 ? overlayUrl
+//                                 : image['image_url'].toString(),
+//                           ),
+
+//                           // Photo / Canopy switch, top-right of the image
+//                           if (hasOverlay)
+//                             Positioned(
+//                               top: 10,
+//                               right: 10,
+//                               child: Material(
+//                                 color: Colors.black.withOpacity(0.55),
+//                                 borderRadius: BorderRadius.circular(20),
+//                                 child: InkWell(
+//                                   borderRadius: BorderRadius.circular(20),
+//                                   onTap: () {
+//                                     setState(() {
+//                                       if (showOverlay) {
+//                                         _overlayLayers.remove(layerId);
+//                                       } else {
+//                                         _overlayLayers.add(layerId);
+//                                       }
+//                                     });
+//                                   },
+//                                   child: Padding(
+//                                     padding: const EdgeInsets.symmetric(
+//                                       horizontal: 11,
+//                                       vertical: 7,
+//                                     ),
+//                                     child: Row(
+//                                       mainAxisSize: MainAxisSize.min,
+//                                       children: [
+//                                         Icon(
+//                                           showOverlay
+//                                               ? Icons.photo_outlined
+//                                               : Icons.layers_rounded,
+//                                           size: 14,
+//                                           color: Colors.white,
+//                                         ),
+//                                         const SizedBox(width: 6),
+//                                         Text(
+//                                           showOverlay ? 'Photo' : 'Canopy',
+//                                           style: FarmTabTheme.font(
+//                                             size: 11.5,
+//                                             weight: FontWeight.w600,
+//                                             color: Colors.white,
+//                                           ),
+//                                         ),
+//                                       ],
+//                                     ),
+//                                   ),
+//                                 ),
+//                               ),
+//                             ),
+//                         ],
+//                       ),
+//               ),
+
+//               // ── Canopy measurement
+//               if (image != null)
+//                 Padding(
+//                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+//                   child: _buildCanopyStats(canopy),
+//                 ),
+
+//               // ── Footer: capture time
+//               Padding(
+//                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+//                 child: _buildImageFooter(image, hasCycle: cycle != null),
+//               ),
+
+//               // ── Start button (no cycle) or cycle details (active cycle)
+//               if (cycle == null)
+//                 Padding(
+//                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+//                   child: SizedBox(
 //                     width: double.infinity,
-//                     child: OutlinedButton(
-//                       onPressed: () => _showHarvestDialog(layer, cycle),
-//                       style: FarmTabTheme.outlinedButton,
+//                     child: ElevatedButton(
+//                       onPressed: () => _showStartCycleDialog(layer),
+//                       style: FarmTabTheme.primaryButton,
 //                       child: Text(
-//                         'Harvest',
+//                         'Start Growing Cycle',
 //                         style: FarmTabTheme.font(
 //                           size: 13,
 //                           weight: FontWeight.w600,
-//                           color: FarmTabTheme.grove,
+//                           color: FarmTabTheme.white,
 //                         ),
 //                       ),
 //                     ),
 //                   ),
-//                 ],
-//               ),
-//             ),
-//         ],
+//                 )
+//               else
+//                 Padding(
+//                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       _buildCycleInfo(cycle),
+//                       const SizedBox(height: 12),
+//                       SizedBox(
+//                         width: double.infinity,
+//                         child: OutlinedButton(
+//                           onPressed: () => _showHarvestDialog(layer, cycle),
+//                           style: FarmTabTheme.outlinedButton,
+//                           child: Text(
+//                             'Harvest',
+//                             style: FarmTabTheme.font(
+//                               size: 13,
+//                               weight: FontWeight.w600,
+//                               color: FarmTabTheme.grove,
+//                             ),
+//                           ),
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//             ],
+//           ),
+//         ),
 //       ),
 //     );
+//   }
+
+//   void _openLayerDetail(Map<String, dynamic> layer) {
+//     Navigator.push(
+//       context,
+//       MaterialPageRoute(
+//         builder: (context) =>
+//             LayerDetailPage(shelf: widget.shelf, layer: layer),
+//       ),
+//     ).then((_) {
+//       // A harvest or new photo may have happened meanwhile
+//       if (mounted) _loadLayers();
+//     });
 //   }
 
 //   Widget _buildCycleInfo(Map<String, dynamic> cycle) {
@@ -1799,7 +1825,7 @@
 //     final overlay = canopy?['overlay_url']?.toString();
 //     final hasOverlay = overlay != null && overlay.isNotEmpty;
 
-//     final path = (_showOverlay && hasOverlay)
+//     final String path = (_showOverlay && overlay != null && overlay.isNotEmpty)
 //         ? overlay
 //         : image['image_url'].toString();
 
@@ -2090,6 +2116,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/layer_service.dart';
+import 'growth_style.dart';
 import 'layer_detail_page.dart';
 import 'shelf_detail_page.dart' show FarmTabTheme;
 
@@ -2163,26 +2190,29 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
 
   @override
   Widget build(BuildContext context) {
-    final content = RefreshIndicator(
-      color: FarmTabTheme.grove,
-      onRefresh: _loadLayers,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            if (_isLoading)
-              _buildLoading()
-            else if (_error != null && _layers.isEmpty)
-              _buildError()
-            else if (_layers.isEmpty)
-              _buildEmpty()
-            else
-              _buildLayerGrid(),
-          ],
+    final content = Container(
+      color: GrowthColors.page,
+      child: RefreshIndicator(
+        color: GrowthColors.accent,
+        onRefresh: _loadLayers,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 16),
+              if (_isLoading)
+                _buildLoading()
+              else if (_error != null && _layers.isEmpty)
+                _buildError()
+              else if (_layers.isEmpty)
+                _buildEmpty()
+              else
+                _buildLayerGrid(),
+            ],
+          ),
         ),
       ),
     );
@@ -2190,7 +2220,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
     if (widget.embedded) return content;
 
     return Scaffold(
-      backgroundColor: FarmTabTheme.white,
+      backgroundColor: GrowthColors.page,
       appBar: AppBar(title: const Text('Growth Monitoring')),
       body: content,
     );
@@ -2203,44 +2233,31 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Latest Layer Images',
-                style: FarmTabTheme.font(
-                  size: 17,
-                  weight: FontWeight.w700,
-                  color: FarmTabTheme.textH,
-                  letterSpacing: -0.2,
-                ),
-              ),
               const SizedBox(height: 3),
               Text(
-                'Captured automatically every day at 8:00 PM',
-                style: FarmTabTheme.font(
+                'A photo is taken automatically every day at 8:00 PM',
+                style: GrowthStyle.text(
                   size: 12.5,
                   weight: FontWeight.w400,
-                  color: FarmTabTheme.textM,
+                  color: GrowthColors.muted,
                 ),
               ),
             ],
           ),
         ),
         Material(
-          color: Colors.transparent,
+          color: Colors.white,
+          shape: const CircleBorder(side: BorderSide(color: GrowthColors.line)),
           child: InkWell(
-            borderRadius: BorderRadius.circular(10),
+            customBorder: const CircleBorder(),
             onTap: _loadLayers,
-            child: Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: FarmTabTheme.mist,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
+            child: const SizedBox(
+              width: 42,
+              height: 42,
+              child: Icon(
                 Icons.refresh_rounded,
-                size: 19,
-                color: FarmTabTheme.grove,
+                size: 20,
+                color: GrowthColors.accentStrong,
               ),
             ),
           ),
@@ -2319,7 +2336,21 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
 
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: FarmTabTheme.cardDecoration,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color.fromARGB(255, 74, 190, 132),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E2B25).withOpacity(0.14),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -2338,11 +2369,11 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                       style: FarmTabTheme.font(
                         size: 15,
                         weight: FontWeight.w700,
-                        color: FarmTabTheme.textH,
+                        color: GrowthColors.ink,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _chip(code, FarmTabTheme.textM, const Color(0xFFF2F2F2)),
+                    _chip(code, GrowthColors.body, GrowthColors.page),
                     const Spacer(),
                     _buildCycleChip(cycle),
                     if (cycle != null)
@@ -2351,7 +2382,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                         icon: const Icon(
                           Icons.more_vert_rounded,
                           size: 20,
-                          color: FarmTabTheme.textM,
+                          color: GrowthColors.muted,
                         ),
                         onSelected: (value) {
                           if (value == 'abort') {
@@ -2366,7 +2397,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                               style: FarmTabTheme.font(
                                 size: 13.5,
                                 weight: FontWeight.w500,
-                                color: FarmTabTheme.alertRed,
+                                color: GrowthColors.red,
                               ),
                             ),
                           ),
@@ -2375,7 +2406,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                     const Icon(
                       Icons.chevron_right_rounded,
                       size: 22,
-                      color: FarmTabTheme.textM,
+                      color: GrowthColors.muted,
                     ),
                   ],
                 ),
@@ -2471,13 +2502,13 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => _showStartCycleDialog(layer),
-                      style: FarmTabTheme.primaryButton,
+                      style: GrowthStyle.primaryButton,
                       child: Text(
                         'Start Growing Cycle',
                         style: FarmTabTheme.font(
                           size: 13,
                           weight: FontWeight.w600,
-                          color: FarmTabTheme.white,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -2495,13 +2526,13 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: () => _showHarvestDialog(layer, cycle),
-                          style: FarmTabTheme.outlinedButton,
+                          style: GrowthStyle.outlinedButton,
                           child: Text(
                             'Harvest',
                             style: FarmTabTheme.font(
                               size: 13,
                               weight: FontWeight.w600,
-                              color: FarmTabTheme.grove,
+                              color: GrowthColors.accentStrong,
                             ),
                           ),
                         ),
@@ -2537,7 +2568,11 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
 
     return Row(
       children: [
-        const Icon(Icons.eco_rounded, size: 14, color: FarmTabTheme.grove),
+        const Icon(
+          Icons.eco_rounded,
+          size: 14,
+          color: GrowthColors.accentStrong,
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -2546,7 +2581,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
             style: FarmTabTheme.font(
               size: 12.5,
               weight: FontWeight.w500,
-              color: FarmTabTheme.textB,
+              color: GrowthColors.body,
             ),
           ),
         ),
@@ -2763,7 +2798,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
       return _canopyMessage(
         Icons.hourglass_empty_rounded,
         'Measuring canopy...',
-        FarmTabTheme.textM,
+        GrowthColors.muted,
       );
     }
 
@@ -2771,58 +2806,93 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
       return _canopyMessage(
         Icons.error_outline_rounded,
         'Canopy could not be measured',
-        FarmTabTheme.alertRed,
+        GrowthColors.red,
       );
     }
 
     final cm2Number = cm2 is num ? cm2.toDouble() : double.tryParse('$cm2');
 
+    // Green pixels on the left, canopy area on the right
     return Row(
       children: [
         Expanded(
           child: _statTile(
-            label: 'Canopy area (approx.)',
-            value: cm2Number == null
-                ? '--'
-                : '${cm2Number.toStringAsFixed(1)} cm\u00B2',
+            icon: Icons.grain_rounded,
+            color: GrowthColors.teal,
+            background: GrowthColors.tealSoft,
+            label: 'Green pixels',
+            value: _formatThousands(pixels),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _statTile(
-            label: 'Green pixels',
-            value: _formatThousands(pixels),
+            icon: Icons.crop_free_rounded,
+            color: GrowthColors.accentStrong,
+            background: GrowthColors.accentSoft,
+            label: 'Canopy area(~)',
+            value: cm2Number == null
+                ? '--'
+                : '${cm2Number.toStringAsFixed(1)} cm\u00B2',
           ),
         ),
       ],
     );
   }
 
-  Widget _statTile({required String label, required String value}) {
+  Widget _statTile({
+    required IconData icon,
+    required Color color,
+    required Color background,
+    required String label,
+    required String value,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
-        color: FarmTabTheme.mist.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(12),
+        color: background.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.55), width: 1.5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            label,
-            style: FarmTabTheme.font(
-              size: 11,
-              weight: FontWeight.w500,
-              color: FarmTabTheme.grove,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
             ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 17, color: color),
           ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: FarmTabTheme.font(
-              size: 16,
-              weight: FontWeight.w700,
-              color: FarmTabTheme.textH,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GrowthStyle.text(
+                    size: 10.5,
+                    weight: FontWeight.w600,
+                    color: GrowthColors.body,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GrowthStyle.text(
+                    size: 15,
+                    weight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2888,7 +2958,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: FarmTabTheme.grove,
+                color: GrowthColors.accentStrong,
               ),
             ),
           );
@@ -2911,7 +2981,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                   style: FarmTabTheme.font(
                     size: 12.5,
                     weight: FontWeight.w400,
-                    color: FarmTabTheme.textM,
+                    color: GrowthColors.muted,
                   ),
                 ),
               ],
@@ -2935,7 +3005,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                 ? Icons.hourglass_empty_rounded
                 : Icons.photo_camera_outlined,
             size: 30,
-            color: hasCycle ? FarmTabTheme.fern : const Color(0xFFB0B0B0),
+            color: hasCycle ? GrowthColors.accent : const Color(0xFFB0B0B0),
           ),
           const SizedBox(height: 8),
           Text(
@@ -2944,7 +3014,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w600,
-              color: hasCycle ? FarmTabTheme.grove : FarmTabTheme.textM,
+              color: hasCycle ? GrowthColors.accentStrong : GrowthColors.muted,
             ),
           ),
           if (hasCycle) ...[
@@ -2955,7 +3025,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
               style: FarmTabTheme.font(
                 size: 12,
                 weight: FontWeight.w400,
-                color: FarmTabTheme.textM,
+                color: GrowthColors.muted,
               ),
             ),
           ],
@@ -2976,7 +3046,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
         style: FarmTabTheme.font(
           size: 12.5,
           weight: FontWeight.w400,
-          color: FarmTabTheme.textM,
+          color: GrowthColors.muted,
         ),
       );
     }
@@ -2998,7 +3068,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
             const Icon(
               Icons.schedule_rounded,
               size: 14,
-              color: FarmTabTheme.textM,
+              color: GrowthColors.muted,
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -3009,15 +3079,15 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                 style: FarmTabTheme.font(
                   size: 12.5,
                   weight: FontWeight.w500,
-                  color: FarmTabTheme.textB,
+                  color: GrowthColors.body,
                 ),
               ),
             ),
             if (isTest)
               _chip(
                 'Test',
-                FarmTabTheme.skyBlue,
-                FarmTabTheme.skyBlue.withOpacity(0.10),
+                GrowthColors.blue,
+                GrowthColors.blue.withOpacity(0.10),
               ),
           ],
         ),
@@ -3028,7 +3098,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
               const Icon(
                 Icons.warning_amber_rounded,
                 size: 15,
-                color: FarmTabTheme.amber,
+                color: GrowthColors.amber,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -3037,7 +3107,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
                   style: FarmTabTheme.font(
                     size: 12,
                     weight: FontWeight.w500,
-                    color: FarmTabTheme.amber,
+                    color: GrowthColors.amber,
                   ),
                 ),
               ),
@@ -3050,7 +3120,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
 
   Widget _buildCycleChip(Map<String, dynamic>? cycle) {
     if (cycle == null) {
-      return _chip('No cycle', FarmTabTheme.textM, const Color(0xFFF2F2F2));
+      return _chip('No cycle', GrowthColors.muted, const Color(0xFFF2F2F2));
     }
 
     final transplant = DateTime.tryParse(
@@ -3058,7 +3128,11 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
     );
 
     if (transplant == null) {
-      return _chip('Growing', FarmTabTheme.grove, FarmTabTheme.mist);
+      return _chip(
+        'Growing',
+        GrowthColors.accentStrong,
+        GrowthColors.accentSoft,
+      );
     }
 
     final today = DateTime.now();
@@ -3068,8 +3142,8 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
 
     return _chip(
       'Day ${day < 1 ? 1 : day}',
-      FarmTabTheme.grove,
-      FarmTabTheme.mist,
+      GrowthColors.accentStrong,
+      GrowthColors.accentSoft,
     );
   }
 
@@ -3144,7 +3218,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28),
-      decoration: FarmTabTheme.cardDecoration,
+      decoration: GrowthStyle.card(),
       child: Column(
         children: [
           const SizedBox(
@@ -3152,7 +3226,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
             height: 22,
             child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              color: FarmTabTheme.grove,
+              color: GrowthColors.accentStrong,
             ),
           ),
           const SizedBox(height: 12),
@@ -3161,7 +3235,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w400,
-              color: FarmTabTheme.textM,
+              color: GrowthColors.muted,
             ),
           ),
         ],
@@ -3182,7 +3256,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
           const Icon(
             Icons.error_outline_rounded,
             size: 30,
-            color: FarmTabTheme.alertRed,
+            color: GrowthColors.red,
           ),
           const SizedBox(height: 10),
           Text(
@@ -3191,19 +3265,19 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w400,
-              color: FarmTabTheme.textB,
+              color: GrowthColors.body,
             ),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: _loadLayers,
-            style: FarmTabTheme.outlinedButton,
+            style: GrowthStyle.outlinedButton,
             child: Text(
               'Retry',
               style: FarmTabTheme.font(
                 size: 13,
                 weight: FontWeight.w600,
-                color: FarmTabTheme.grove,
+                color: GrowthColors.accentStrong,
               ),
             ),
           ),
@@ -3226,7 +3300,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
         style: FarmTabTheme.font(
           size: 13.5,
           weight: FontWeight.w400,
-          color: FarmTabTheme.textM,
+          color: GrowthColors.muted,
         ),
       ),
     );
@@ -3311,7 +3385,7 @@ InputDecoration _layerFieldDecoration(String hint) {
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: FarmTabTheme.fern, width: 1.5),
+      borderSide: const BorderSide(color: GrowthColors.accent, width: 1.5),
     ),
   );
 }
@@ -3425,7 +3499,7 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
       style: FarmTabTheme.font(
         size: 13,
         weight: FontWeight.w600,
-        color: FarmTabTheme.textH,
+        color: GrowthColors.ink,
       ),
     );
   }
@@ -3433,14 +3507,14 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: FarmTabTheme.white,
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         'Start Growing Cycle \u00B7 ${widget.layerName}',
         style: FarmTabTheme.font(
           size: 16,
           weight: FontWeight.w700,
-          color: FarmTabTheme.textH,
+          color: GrowthColors.ink,
         ),
       ),
       content: SingleChildScrollView(
@@ -3467,7 +3541,7 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
                     const Icon(
                       Icons.calendar_today_rounded,
                       size: 18,
-                      color: FarmTabTheme.grove,
+                      color: GrowthColors.accentStrong,
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -3475,7 +3549,7 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
                       style: FarmTabTheme.font(
                         size: 14.5,
                         weight: FontWeight.w500,
-                        color: FarmTabTheme.textH,
+                        color: GrowthColors.ink,
                       ),
                     ),
                   ],
@@ -3490,7 +3564,7 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
               style: FarmTabTheme.font(
                 size: 11.5,
                 weight: FontWeight.w400,
-                color: FarmTabTheme.textM,
+                color: GrowthColors.muted,
               ),
             ),
             const SizedBox(height: 18),
@@ -3521,12 +3595,12 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w600,
-              color: FarmTabTheme.textM,
+              color: GrowthColors.muted,
             ),
           ),
         ),
         ElevatedButton(
-          style: FarmTabTheme.primaryButton,
+          style: GrowthStyle.primaryButton,
           onPressed: _isSaving ? null : _submit,
           child: _isSaving
               ? const SizedBox(
@@ -3534,7 +3608,7 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: FarmTabTheme.white,
+                    color: Colors.white,
                   ),
                 )
               : Text(
@@ -3542,7 +3616,7 @@ class _StartCycleDialogState extends State<_StartCycleDialog> {
                   style: FarmTabTheme.font(
                     size: 13.5,
                     weight: FontWeight.w600,
-                    color: FarmTabTheme.white,
+                    color: Colors.white,
                   ),
                 ),
         ),
@@ -3576,14 +3650,14 @@ class _AbortCycleDialogState extends State<_AbortCycleDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: FarmTabTheme.white,
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         'Abort ${widget.layerName} cycle?',
         style: FarmTabTheme.font(
           size: 16,
           weight: FontWeight.w700,
-          color: FarmTabTheme.textH,
+          color: GrowthColors.ink,
         ),
       ),
       content: Column(
@@ -3598,7 +3672,7 @@ class _AbortCycleDialogState extends State<_AbortCycleDialog> {
             style: FarmTabTheme.font(
               size: 13,
               weight: FontWeight.w400,
-              color: FarmTabTheme.textB,
+              color: GrowthColors.body,
               height: 1.4,
             ),
           ),
@@ -3617,14 +3691,14 @@ class _AbortCycleDialogState extends State<_AbortCycleDialog> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w600,
-              color: FarmTabTheme.textM,
+              color: GrowthColors.muted,
             ),
           ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: FarmTabTheme.alertRed,
-            foregroundColor: FarmTabTheme.white,
+            backgroundColor: GrowthColors.red,
+            foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -3637,7 +3711,7 @@ class _AbortCycleDialogState extends State<_AbortCycleDialog> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w600,
-              color: FarmTabTheme.white,
+              color: Colors.white,
             ),
           ),
         ),
@@ -3851,7 +3925,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
       style: FarmTabTheme.font(
         size: 13,
         weight: FontWeight.w600,
-        color: FarmTabTheme.textH,
+        color: GrowthColors.ink,
       ),
     );
   }
@@ -3864,7 +3938,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
           height: 20,
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
-            color: FarmTabTheme.grove,
+            color: GrowthColors.accentStrong,
           ),
         ),
         const SizedBox(width: 14),
@@ -3874,7 +3948,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w400,
-              color: FarmTabTheme.textB,
+              color: GrowthColors.body,
               height: 1.4,
             ),
           ),
@@ -3887,7 +3961,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 22, color: color ?? FarmTabTheme.fern),
+        Icon(icon, size: 22, color: color ?? GrowthColors.accent),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -3895,7 +3969,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
             style: FarmTabTheme.font(
               size: 13.5,
               weight: FontWeight.w400,
-              color: FarmTabTheme.textB,
+              color: GrowthColors.body,
               height: 1.4,
             ),
           ),
@@ -3963,7 +4037,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
                 style: FarmTabTheme.font(
                   size: 12,
                   weight: FontWeight.w500,
-                  color: FarmTabTheme.textM,
+                  color: GrowthColors.muted,
                 ),
               ),
             ),
@@ -3979,7 +4053,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
                   style: FarmTabTheme.font(
                     size: 12.5,
                     weight: FontWeight.w600,
-                    color: FarmTabTheme.grove,
+                    color: GrowthColors.accentStrong,
                   ),
                 ),
               ),
@@ -3992,7 +4066,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
             style: FarmTabTheme.font(
               size: 13,
               weight: FontWeight.w600,
-              color: FarmTabTheme.textH,
+              color: GrowthColors.ink,
             ),
           ),
       ],
@@ -4048,21 +4122,21 @@ class _HarvestDialogState extends State<_HarvestDialog> {
           Icons.cloud_off_rounded,
           'The camera did not answer in time. Check that its Raspberry Pi '
           'is on, then try again.',
-          color: FarmTabTheme.amber,
+          color: GrowthColors.amber,
         );
 
       case 'measure_failed':
         return _message(
           Icons.error_outline_rounded,
           'The photo could not be measured. Retake the photo.',
-          color: FarmTabTheme.alertRed,
+          color: GrowthColors.red,
         );
 
       case 'error':
         return _message(
           Icons.error_outline_rounded,
           _error ?? 'Something went wrong.',
-          color: FarmTabTheme.alertRed,
+          color: GrowthColors.red,
         );
 
       case 'no_photo':
@@ -4073,7 +4147,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
               Icons.warning_amber_rounded,
               'Harvesting without a final photo. The final canopy will not '
               'be recorded for this cycle.',
-              color: FarmTabTheme.amber,
+              color: GrowthColors.amber,
             ),
             _buildFields(),
           ],
@@ -4095,7 +4169,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
         style: FarmTabTheme.font(
           size: 13.5,
           weight: FontWeight.w600,
-          color: FarmTabTheme.textM,
+          color: GrowthColors.muted,
         ),
       ),
     );
@@ -4109,7 +4183,7 @@ class _HarvestDialogState extends State<_HarvestDialog> {
         style: FarmTabTheme.font(
           size: 13.5,
           weight: FontWeight.w600,
-          color: FarmTabTheme.grove,
+          color: GrowthColors.accentStrong,
         ),
       ),
     );
@@ -4117,14 +4191,14 @@ class _HarvestDialogState extends State<_HarvestDialog> {
 
   Widget _primaryAction(String text, VoidCallback? onPressed) {
     return ElevatedButton(
-      style: FarmTabTheme.primaryButton,
+      style: GrowthStyle.primaryButton,
       onPressed: onPressed,
       child: Text(
         text,
         style: FarmTabTheme.font(
           size: 13.5,
           weight: FontWeight.w600,
-          color: FarmTabTheme.white,
+          color: Colors.white,
         ),
       ),
     );
@@ -4186,14 +4260,14 @@ class _HarvestDialogState extends State<_HarvestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: FarmTabTheme.white,
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         'Harvest \u00B7 ${widget.layerName}',
         style: FarmTabTheme.font(
           size: 16,
           weight: FontWeight.w700,
-          color: FarmTabTheme.textH,
+          color: GrowthColors.ink,
         ),
       ),
       content: SingleChildScrollView(child: _buildBody()),
