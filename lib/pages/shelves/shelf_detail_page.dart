@@ -15,6 +15,7 @@ import '../../services/growing_cycle_service.dart';
 import '../../services/shelf_service.dart';
 import '../notifications/shelf_notifications_page.dart';
 import '../../services/notification_service.dart';
+import 'growth_monitoring_page.dart';
 
 // ─────────────────────────────────────────────────────────────
 // FARMTAB DESIGN TOKENS (same system used across the app)
@@ -822,9 +823,10 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
         );
 
       case ShelfFunction.growthMonitoring:
-        return _buildComingSoonPage(
-          title: 'Growth Monitoring',
-          icon: Icons.eco_rounded,
+        return GrowthMonitoringPage(
+          shelf: widget.shelf,
+          organisation: widget.organisation,
+          embedded: true,
         );
 
       case ShelfFunction.simulation:
