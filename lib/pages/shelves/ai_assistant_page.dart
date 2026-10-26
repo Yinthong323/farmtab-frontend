@@ -1,46 +1,1049 @@
+// import 'dart:typed_data';
+
+// import 'package:flutter/foundation.dart';
+// import 'package:flutter/material.dart';
+// import 'package:image_picker/image_picker.dart';
+
+// import '../../services/assistant_service.dart';
+// import 'growth_style.dart';
+
+// // ─────────────────────────────────────────────────────────────
+// // AI ASSISTANT PAGE
+// // A simple chat: ask about lettuce growing or your farm, and attach a
+// // photo to have it analysed. The conversation is kept on the phone for
+// // as long as this page is open; the server holds no chat history yet.
+// // ─────────────────────────────────────────────────────────────
+
+// class _ChatMessage {
+//   final bool isUser;
+//   final String text;
+//   final Uint8List? image; // a photo shown inside the user's bubble
+//   final bool isError;
+
+//   _ChatMessage({
+//     required this.isUser,
+//     required this.text,
+//     this.image,
+//     this.isError = false,
+//   });
+// }
+
+// class AiAssistantPage extends StatefulWidget {
+//   final Map<String, dynamic> shelf;
+//   final Map<String, dynamic> organisation;
+//   final bool embedded;
+
+//   const AiAssistantPage({
+//     super.key,
+//     required this.shelf,
+//     required this.organisation,
+//     this.embedded = false,
+//   });
+
+//   @override
+//   State<AiAssistantPage> createState() => _AiAssistantPageState();
+// }
+
+// class _AiAssistantPageState extends State<AiAssistantPage> {
+//   final AssistantService _service = AssistantService();
+//   final ImagePicker _picker = ImagePicker();
+
+//   final TextEditingController _input = TextEditingController();
+//   final ScrollController _scroll = ScrollController();
+
+//   final List<_ChatMessage> _messages = [];
+
+//   bool _sending = false;
+
+//   // The photo attached to the chat. It is sent with every question until
+//   // the user removes it, so follow-up questions are about the same photo.
+//   Uint8List? _image;
+//   String? _imageName;
+//   bool _imageShownInChat = false;
+
+//   static const List<String> _suggestions = [
+//     'What is the best EC for lettuce?',
+//     'What pH range should I keep?',
+//     'Is my current sensor reading okay?',
+//     'What water temperature suits lettuce roots?',
+//   ];
+
+//   @override
+//   void dispose() {
+//     _input.dispose();
+//     _scroll.dispose();
+//     super.dispose();
+//   }
+
+//   // ============================================================
+//   // ACTIONS
+//   // ============================================================
+
+//   // The last messages, as the server expects them (without error bubbles)
+//   List<Map<String, String>> _historyPayload() {
+//     final recent = _messages.where((m) => !m.isError).toList();
+
+//     final start = recent.length > 16 ? recent.length - 16 : 0;
+
+//     return recent.sublist(start).map((m) {
+//       final note = m.image != null ? '\n[Photo attached]' : '';
+
+//       return {
+//         'role': m.isUser ? 'user' : 'assistant',
+//         'text': '${m.text}$note',
+//       };
+//     }).toList();
+//   }
+
+//   Future<void> _send([String? preset]) async {
+//     if (_sending) return;
+
+//     final typed = (preset ?? _input.text).trim();
+
+//     if (typed.isEmpty && _image == null) return;
+
+//     final question = typed.isEmpty
+//         ? 'Please look at this photo of my lettuce and tell me what you see.'
+//         : typed;
+
+//     final history = _historyPayload();
+//     final imageToSend = _image;
+//     final imageName = _imageName;
+
+//     // Show the photo in the chat only the first time it is used
+//     final showThumbnail = imageToSend != null && !_imageShownInChat;
+
+//     setState(() {
+//       _messages.add(
+//         _ChatMessage(
+//           isUser: true,
+//           text: question,
+//           image: showThumbnail ? imageToSend : null,
+//         ),
+//       );
+
+//       if (imageToSend != null) _imageShownInChat = true;
+
+//       _input.clear();
+//       _sending = true;
+//     });
+
+//     _scrollToBottom();
+
+//     try {
+//       final reply = await _service.sendMessage(
+//         siteId: widget.shelf['site_id'],
+//         shelfId: widget.shelf['id'],
+//         message: question,
+//         history: history,
+//         imageBytes: imageToSend,
+//         imageName: imageName,
+//       );
+
+//       if (!mounted) return;
+
+//       setState(() {
+//         _messages.add(_ChatMessage(isUser: false, text: reply));
+//       });
+//     } catch (e) {
+//       if (!mounted) return;
+
+//       setState(() {
+//         _messages.add(
+//           _ChatMessage(
+//             isUser: false,
+//             isError: true,
+//             text: e.toString().replaceFirst('Exception: ', ''),
+//           ),
+//         );
+//       });
+//     } finally {
+//       if (mounted) {
+//         setState(() {
+//           _sending = false;
+//         });
+
+//         _scrollToBottom();
+//       }
+//     }
+//   }
+
+//   void _scrollToBottom() {
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       if (!_scroll.hasClients) return;
+
+//       _scroll.animateTo(
+//         _scroll.position.maxScrollExtent,
+//         duration: const Duration(milliseconds: 250),
+//         curve: Curves.easeOut,
+//       );
+//     });
+//   }
+
+//   void _newChat() {
+//     if (_sending) return;
+
+//     setState(() {
+//       _messages.clear();
+//       _image = null;
+//       _imageName = null;
+//       _imageShownInChat = false;
+//       _input.clear();
+//     });
+//   }
+
+//   // Camera is offered on phones and the web; desktop only has the gallery
+//   bool get _cameraAvailable =>
+//       kIsWeb ||
+//       defaultTargetPlatform == TargetPlatform.android ||
+//       defaultTargetPlatform == TargetPlatform.iOS;
+
+//   void _chooseImageSource() {
+//     if (!_cameraAvailable) {
+//       _pickImage(ImageSource.gallery);
+//       return;
+//     }
+
+//     showModalBottomSheet(
+//       context: context,
+//       showDragHandle: true,
+//       backgroundColor: Colors.white,
+//       shape: const RoundedRectangleBorder(
+//         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+//       ),
+//       builder: (sheetContext) {
+//         return SafeArea(
+//           child: Padding(
+//             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+//             child: Column(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 _sourceTile(
+//                   sheetContext,
+//                   Icons.photo_library_outlined,
+//                   'Choose from gallery',
+//                   ImageSource.gallery,
+//                 ),
+//                 _sourceTile(
+//                   sheetContext,
+//                   Icons.photo_camera_outlined,
+//                   'Take a photo',
+//                   ImageSource.camera,
+//                 ),
+//               ],
+//             ),
+//           ),
+//         );
+//       },
+//     );
+//   }
+
+//   Widget _sourceTile(
+//     BuildContext sheetContext,
+//     IconData icon,
+//     String label,
+//     ImageSource source,
+//   ) {
+//     return ListTile(
+//       leading: GrowthStyle.iconChip(
+//         icon,
+//         GrowthColors.accentStrong,
+//         GrowthColors.accentSoft,
+//         size: 40,
+//       ),
+//       title: Text(
+//         label,
+//         style: GrowthStyle.text(size: 14.5, weight: FontWeight.w600),
+//       ),
+//       onTap: () {
+//         Navigator.pop(sheetContext);
+//         _pickImage(source);
+//       },
+//     );
+//   }
+
+//   Future<void> _pickImage(ImageSource source) async {
+//     try {
+//       final file = await _picker.pickImage(
+//         source: source,
+//         maxWidth: 1600,
+//         imageQuality: 85,
+//       );
+
+//       if (file == null) return;
+
+//       final bytes = await file.readAsBytes();
+
+//       if (!mounted) return;
+
+//       setState(() {
+//         _image = bytes;
+//         _imageName = file.name;
+//         _imageShownInChat = false;
+//       });
+//     } catch (e) {
+//       if (!mounted) return;
+
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         const SnackBar(content: Text('Could not open the photo picker.')),
+//       );
+//     }
+//   }
+
+//   // ============================================================
+//   // BUILD
+//   // ============================================================
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final body = Container(color: GrowthColors.page, child: _buildContent());
+
+//     if (widget.embedded) return body;
+
+//     return Scaffold(
+//       backgroundColor: GrowthColors.page,
+//       appBar: AppBar(
+//         backgroundColor: Colors.white,
+//         surfaceTintColor: Colors.white,
+//         elevation: 0,
+//         iconTheme: const IconThemeData(color: GrowthColors.ink),
+//         title: Text(
+//           'AI Assistant',
+//           style: GrowthStyle.text(size: 17, weight: FontWeight.w800),
+//         ),
+//       ),
+//       body: body,
+//     );
+//   }
+
+//   Widget _buildContent() {
+//     return Column(
+//       children: [
+//         _buildHeader(),
+//         Expanded(
+//           child: _messages.isEmpty ? _buildEmptyState() : _buildMessageList(),
+//         ),
+//         if (_image != null) _buildAttachmentChip(),
+//         _buildInputBar(),
+//       ],
+//     );
+//   }
+
+//   Widget _buildHeader() {
+//     return Container(
+//       width: double.infinity,
+//       padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
+//       decoration: const BoxDecoration(
+//         color: Colors.white,
+//         border: Border(bottom: BorderSide(color: GrowthColors.line)),
+//       ),
+//       child: Row(
+//         children: [
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(
+//                   'Ask about your farm',
+//                   style: GrowthStyle.text(size: 14.5, weight: FontWeight.w700),
+//                 ),
+//                 Text(
+//                   'Questions, or a photo of your lettuce',
+//                   style: GrowthStyle.text(
+//                     size: 12,
+//                     weight: FontWeight.w400,
+//                     color: GrowthColors.muted,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           TextButton.icon(
+//             onPressed: (_messages.isEmpty || _sending) ? null : _newChat,
+//             icon: const Icon(Icons.add_comment_outlined, size: 18),
+//             label: Text(
+//               'New chat',
+//               style: GrowthStyle.text(size: 12.5, weight: FontWeight.w700),
+//             ),
+//             style: TextButton.styleFrom(
+//               foregroundColor: GrowthColors.accentStrong,
+//               disabledForegroundColor: GrowthColors.muted.withOpacity(0.6),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   // ── Empty state with example questions
+//   Widget _buildEmptyState() {
+//     return Center(
+//       child: SingleChildScrollView(
+//         padding: const EdgeInsets.all(24),
+//         child: ConstrainedBox(
+//           constraints: const BoxConstraints(maxWidth: 520),
+//           child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               Container(
+//                 width: 76,
+//                 height: 76,
+//                 decoration: const BoxDecoration(
+//                   shape: BoxShape.circle,
+//                   gradient: LinearGradient(
+//                     begin: Alignment.topLeft,
+//                     end: Alignment.bottomRight,
+//                     colors: [Color(0xFF52C48F), Color(0xFF86DDB6)],
+//                   ),
+//                 ),
+//                 child: const Icon(
+//                   Icons.smart_toy_rounded,
+//                   size: 36,
+//                   color: Colors.white,
+//                 ),
+//               ),
+//               const SizedBox(height: 18),
+//               Text(
+//                 'How can I help?',
+//                 style: GrowthStyle.text(
+//                   size: 20,
+//                   weight: FontWeight.w800,
+//                   letterSpacing: -0.4,
+//                 ),
+//               ),
+//               const SizedBox(height: 18),
+//               Wrap(
+//                 alignment: WrapAlignment.center,
+//                 spacing: 8,
+//                 runSpacing: 8,
+//                 children: [
+//                   for (final text in _suggestions)
+//                     ActionChip(
+//                       label: Text(
+//                         text,
+//                         style: GrowthStyle.text(
+//                           size: 12.5,
+//                           weight: FontWeight.w600,
+//                           color: GrowthColors.body,
+//                         ),
+//                       ),
+//                       backgroundColor: Colors.white,
+//                       side: const BorderSide(color: GrowthColors.line),
+//                       shape: RoundedRectangleBorder(
+//                         borderRadius: BorderRadius.circular(20),
+//                       ),
+//                       onPressed: () => _send(text),
+//                     ),
+//                   ActionChip(
+//                     avatar: const Icon(
+//                       Icons.photo_camera_outlined,
+//                       size: 16,
+//                       color: GrowthColors.accentStrong,
+//                     ),
+//                     label: Text(
+//                       'Analyze a plant photo',
+//                       style: GrowthStyle.text(
+//                         size: 12.5,
+//                         weight: FontWeight.w700,
+//                         color: GrowthColors.accentStrong,
+//                       ),
+//                     ),
+//                     backgroundColor: GrowthColors.accentSoft,
+//                     side: const BorderSide(color: GrowthColors.accentMid),
+//                     shape: RoundedRectangleBorder(
+//                       borderRadius: BorderRadius.circular(20),
+//                     ),
+//                     onPressed: _chooseImageSource,
+//                   ),
+//                 ],
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   // ── The conversation
+//   Widget _buildMessageList() {
+//     return SelectionArea(
+//       child: Center(
+//         child: ConstrainedBox(
+//           constraints: const BoxConstraints(maxWidth: 820),
+//           child: ListView.builder(
+//             controller: _scroll,
+//             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+//             itemCount: _messages.length + (_sending ? 1 : 0),
+//             itemBuilder: (context, index) {
+//               if (index == _messages.length) return _buildTypingBubble();
+
+//               final message = _messages[index];
+
+//               return message.isUser
+//                   ? _buildUserBubble(message)
+//                   : _buildAssistantBubble(message);
+//             },
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   double _bubbleMaxWidth(BuildContext context) {
+//     final width = MediaQuery.sizeOf(context).width;
+//     return (width * 0.82).clamp(220.0, 600.0).toDouble();
+//   }
+
+//   Widget _buildUserBubble(_ChatMessage message) {
+//     return Align(
+//       alignment: Alignment.centerRight,
+//       child: ConstrainedBox(
+//         constraints: BoxConstraints(maxWidth: _bubbleMaxWidth(context)),
+//         child: Container(
+//           margin: const EdgeInsets.only(bottom: 14, left: 40),
+//           padding: const EdgeInsets.all(12),
+//           decoration: const BoxDecoration(
+//             color: GrowthColors.accent,
+//             borderRadius: BorderRadius.only(
+//               topLeft: Radius.circular(18),
+//               topRight: Radius.circular(18),
+//               bottomLeft: Radius.circular(18),
+//               bottomRight: Radius.circular(4),
+//             ),
+//           ),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               if (message.image != null) ...[
+//                 ClipRRect(
+//                   borderRadius: BorderRadius.circular(12),
+//                   child: Image.memory(
+//                     message.image!,
+//                     width: 220,
+//                     height: 160,
+//                     fit: BoxFit.cover,
+//                   ),
+//                 ),
+//                 const SizedBox(height: 8),
+//               ],
+//               Text(
+//                 message.text,
+//                 style: GrowthStyle.text(
+//                   size: 14,
+//                   weight: FontWeight.w500,
+//                   color: Colors.white,
+//                   height: 1.4,
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _assistantAvatar() {
+//     return Container(
+//       width: 32,
+//       height: 32,
+//       margin: const EdgeInsets.only(right: 8, top: 2),
+//       decoration: const BoxDecoration(
+//         color: GrowthColors.accentSoft,
+//         shape: BoxShape.circle,
+//       ),
+//       alignment: Alignment.center,
+//       child: const Icon(
+//         Icons.smart_toy_rounded,
+//         size: 17,
+//         color: GrowthColors.accentStrong,
+//       ),
+//     );
+//   }
+
+//   Widget _buildAssistantBubble(_ChatMessage message) {
+//     final color = message.isError ? GrowthColors.red : GrowthColors.ink;
+
+//     return Align(
+//       alignment: Alignment.centerLeft,
+//       child: Row(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           _assistantAvatar(),
+//           Flexible(
+//             child: ConstrainedBox(
+//               constraints: BoxConstraints(maxWidth: _bubbleMaxWidth(context)),
+//               child: Container(
+//                 margin: const EdgeInsets.only(bottom: 14, right: 24),
+//                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+//                 decoration: BoxDecoration(
+//                   color: message.isError ? GrowthColors.redSoft : Colors.white,
+//                   borderRadius: const BorderRadius.only(
+//                     topLeft: Radius.circular(4),
+//                     topRight: Radius.circular(18),
+//                     bottomLeft: Radius.circular(18),
+//                     bottomRight: Radius.circular(18),
+//                   ),
+//                   border: Border.all(
+//                     color: message.isError
+//                         ? const Color(0xFFF4B9BE)
+//                         : GrowthColors.line,
+//                   ),
+//                 ),
+//                 child: message.isError
+//                     ? Row(
+//                         crossAxisAlignment: CrossAxisAlignment.start,
+//                         children: [
+//                           const Icon(
+//                             Icons.error_outline_rounded,
+//                             size: 18,
+//                             color: GrowthColors.red,
+//                           ),
+//                           const SizedBox(width: 8),
+//                           Expanded(
+//                             child: Text(
+//                               message.text,
+//                               style: GrowthStyle.text(
+//                                 size: 13.5,
+//                                 weight: FontWeight.w500,
+//                                 color: color,
+//                                 height: 1.4,
+//                               ),
+//                             ),
+//                           ),
+//                         ],
+//                       )
+//                     : _formattedText(message.text),
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildTypingBubble() {
+//     return Align(
+//       alignment: Alignment.centerLeft,
+//       child: Row(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           _assistantAvatar(),
+//           Container(
+//             margin: const EdgeInsets.only(bottom: 14),
+//             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+//             decoration: BoxDecoration(
+//               color: Colors.white,
+//               borderRadius: BorderRadius.circular(18),
+//               border: Border.all(color: GrowthColors.line),
+//             ),
+//             child: Row(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 const SizedBox(
+//                   width: 16,
+//                   height: 16,
+//                   child: CircularProgressIndicator(
+//                     strokeWidth: 2.2,
+//                     color: GrowthColors.accent,
+//                   ),
+//                 ),
+//                 const SizedBox(width: 10),
+//                 Text(
+//                   'Thinking...',
+//                   style: GrowthStyle.text(
+//                     size: 13,
+//                     weight: FontWeight.w500,
+//                     color: GrowthColors.muted,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   // ------------------------------------------------------------
+//   // The assistant writes plain text with "- " bullets and **bold**.
+//   // This shows those nicely without needing a markdown package.
+//   // ------------------------------------------------------------
+//   Widget _formattedText(String text) {
+//     final base = GrowthStyle.text(
+//       size: 14,
+//       weight: FontWeight.w400,
+//       color: GrowthColors.ink,
+//       height: 1.5,
+//     );
+
+//     final children = <Widget>[];
+
+//     for (final rawLine in text.split('\n')) {
+//       var line = rawLine.replaceAll('`', '').trimRight();
+//       final trimmed = line.trimLeft();
+
+//       if (trimmed.isEmpty) {
+//         children.add(const SizedBox(height: 6));
+//         continue;
+//       }
+
+//       // Headings (# ...) become a bold line
+//       if (trimmed.startsWith('#')) {
+//         final heading = trimmed.replaceFirst(RegExp(r'^#+\s*'), '');
+//         children.add(
+//           Padding(
+//             padding: const EdgeInsets.only(top: 4, bottom: 2),
+//             child: Text(
+//               heading.replaceAll('**', ''),
+//               style: base.copyWith(fontWeight: FontWeight.w800),
+//             ),
+//           ),
+//         );
+//         continue;
+//       }
+
+//       final bullet = RegExp(r'^[-*\u2022]\s+(.*)$').firstMatch(trimmed);
+//       final numbered = RegExp(r'^(\d+[.)])\s+(.*)$').firstMatch(trimmed);
+
+//       if (bullet != null || numbered != null) {
+//         final marker = bullet != null ? '\u2022' : numbered!.group(1)!;
+//         final content = bullet != null ? bullet.group(1)! : numbered!.group(2)!;
+
+//         children.add(
+//           Padding(
+//             padding: const EdgeInsets.only(top: 3, left: 2),
+//             child: Row(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 SizedBox(
+//                   width: 22,
+//                   child: Text(
+//                     marker,
+//                     style: base.copyWith(
+//                       color: GrowthColors.accentStrong,
+//                       fontWeight: FontWeight.w700,
+//                     ),
+//                   ),
+//                 ),
+//                 Expanded(
+//                   child: Text.rich(TextSpan(children: _spans(content, base))),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         );
+//         continue;
+//       }
+
+//       children.add(
+//         Padding(
+//           padding: const EdgeInsets.only(top: 2),
+//           child: Text.rich(TextSpan(children: _spans(line, base))),
+//         ),
+//       );
+//     }
+
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       mainAxisSize: MainAxisSize.min,
+//       children: children,
+//     );
+//   }
+
+//   // **bold** text between double asterisks
+//   List<InlineSpan> _spans(String text, TextStyle base) {
+//     final parts = text.split('**');
+
+//     return [
+//       for (int i = 0; i < parts.length; i++)
+//         TextSpan(
+//           text: parts[i],
+//           style: i.isOdd ? base.copyWith(fontWeight: FontWeight.w800) : base,
+//         ),
+//     ];
+//   }
+
+//   // ── The attached photo, shown above the input
+//   Widget _buildAttachmentChip() {
+//     return Container(
+//       width: double.infinity,
+//       color: Colors.white,
+//       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+//       child: Center(
+//         child: ConstrainedBox(
+//           constraints: const BoxConstraints(maxWidth: 820),
+//           child: Container(
+//             padding: const EdgeInsets.all(8),
+//             decoration: BoxDecoration(
+//               color: GrowthColors.accentSoft,
+//               borderRadius: BorderRadius.circular(14),
+//             ),
+//             child: Row(
+//               children: [
+//                 ClipRRect(
+//                   borderRadius: BorderRadius.circular(10),
+//                   child: Image.memory(
+//                     _image!,
+//                     width: 44,
+//                     height: 44,
+//                     fit: BoxFit.cover,
+//                   ),
+//                 ),
+//                 const SizedBox(width: 10),
+//                 Expanded(
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       Text(
+//                         'Photo attached',
+//                         style: GrowthStyle.text(
+//                           size: 12.5,
+//                           weight: FontWeight.w700,
+//                           color: GrowthColors.accentStrong,
+//                         ),
+//                       ),
+//                       Text(
+//                         'Used for your questions until you remove it',
+//                         style: GrowthStyle.text(
+//                           size: 11,
+//                           weight: FontWeight.w400,
+//                           color: GrowthColors.body,
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//                 IconButton(
+//                   tooltip: 'Remove photo',
+//                   onPressed: () {
+//                     setState(() {
+//                       _image = null;
+//                       _imageName = null;
+//                       _imageShownInChat = false;
+//                     });
+//                   },
+//                   icon: const Icon(
+//                     Icons.close_rounded,
+//                     size: 20,
+//                     color: GrowthColors.body,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   // ── Text field, attach and send buttons
+//   Widget _buildInputBar() {
+//     final canSend =
+//         !_sending && (_input.text.trim().isNotEmpty || _image != null);
+
+//     return Container(
+//       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+//       decoration: const BoxDecoration(
+//         color: Colors.white,
+//         border: Border(top: BorderSide(color: GrowthColors.line)),
+//       ),
+//       child: SafeArea(
+//         top: false,
+//         child: Center(
+//           child: ConstrainedBox(
+//             constraints: const BoxConstraints(maxWidth: 820),
+//             child: Column(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 Row(
+//                   crossAxisAlignment: CrossAxisAlignment.end,
+//                   children: [
+//                     Material(
+//                       color: GrowthColors.page,
+//                       borderRadius: BorderRadius.circular(14),
+//                       child: InkWell(
+//                         borderRadius: BorderRadius.circular(14),
+//                         onTap: _sending ? null : _chooseImageSource,
+//                         child: const SizedBox(
+//                           width: 44,
+//                           height: 44,
+//                           child: Icon(
+//                             Icons.add_photo_alternate_outlined,
+//                             size: 22,
+//                             color: GrowthColors.accentStrong,
+//                           ),
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(width: 8),
+//                     Expanded(
+//                       child: Container(
+//                         constraints: const BoxConstraints(maxHeight: 120),
+//                         decoration: BoxDecoration(
+//                           color: GrowthColors.page,
+//                           borderRadius: BorderRadius.circular(22),
+//                         ),
+//                         child: TextField(
+//                           controller: _input,
+//                           minLines: 1,
+//                           maxLines: 4,
+//                           textInputAction: TextInputAction.newline,
+//                           onChanged: (_) => setState(() {}),
+//                           style: GrowthStyle.text(
+//                             size: 14,
+//                             weight: FontWeight.w400,
+//                           ),
+//                           decoration: InputDecoration(
+//                             hintText: _image == null
+//                                 ? 'Message the assistant...'
+//                                 : 'Ask about this photo...',
+//                             hintStyle: GrowthStyle.text(
+//                               size: 14,
+//                               weight: FontWeight.w400,
+//                               color: GrowthColors.muted,
+//                             ),
+//                             contentPadding: const EdgeInsets.symmetric(
+//                               horizontal: 16,
+//                               vertical: 12,
+//                             ),
+//                             border: InputBorder.none,
+//                           ),
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(width: 8),
+//                     Material(
+//                       color: canSend ? GrowthColors.accent : GrowthColors.line,
+//                       borderRadius: BorderRadius.circular(14),
+//                       child: InkWell(
+//                         borderRadius: BorderRadius.circular(14),
+//                         onTap: canSend ? () => _send() : null,
+//                         child: const SizedBox(
+//                           width: 44,
+//                           height: 44,
+//                           child: Icon(
+//                             Icons.arrow_upward_rounded,
+//                             size: 22,
+//                             color: Colors.white,
+//                           ),
+//                         ),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 6),
+//                 Text(
+//                   'AI can make mistakes. Check important decisions.',
+//                   style: GrowthStyle.text(
+//                     size: 10.5,
+//                     weight: FontWeight.w400,
+//                     color: GrowthColors.muted,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../services/assistant_service.dart';
+import '../../services/layer_service.dart';
+import 'growth_style.dart';
 
 // ─────────────────────────────────────────────────────────────
-// FARMTAB DESIGN TOKENS (same system used across the app)
+// AI ASSISTANT PAGE
+// A chat: ask about lettuce growing or your farm, attach a photo (from the
+// phone, or one of the farm's own camera photos) and have it analysed.
+// Every chat is saved on the server and can be reopened from History.
 // ─────────────────────────────────────────────────────────────
-class FarmTabTheme {
-  static const Color forest = Color(0xFF1B4332);
-  static const Color grove = Color(0xFF2D6A4F);
-  static const Color fern = Color(0xFF40916C);
-  static const Color mint = Color(0xFF95D5B2);
-  static const Color mist = Color(0xFFD8F3DC);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFFE8E8E8);
-  static const Color textH = Color(0xFF111111);
-  static const Color textB = Color(0xFF444444);
-  static const Color textM = Color(0xFF888888);
-  static const Color alertRed = Color(0xFFE63946);
 
-  static TextStyle font({
-    required double size,
-    required FontWeight weight,
-    required Color color,
-    double? letterSpacing,
-    double? height,
-  }) {
-    return GoogleFonts.plusJakartaSans(
-      fontSize: size,
-      fontWeight: weight,
-      color: color,
-      letterSpacing: letterSpacing,
-      height: height,
-    );
-  }
+const List<String> _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+String _shortDateTime(dynamic iso) {
+  final date = DateTime.tryParse(iso?.toString() ?? '')?.toLocal();
+
+  if (date == null) return '';
+
+  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final minute = date.minute.toString().padLeft(2, '0');
+
+  return '${date.day} ${_months[date.month - 1]}, '
+      '$hour:$minute ${date.hour >= 12 ? 'PM' : 'AM'}';
 }
 
-// ─────────────────────────────────────────────────────────────
-// AI ASSISTANT PAGE — basic chat UI shell.
-//
-// This is UI only for now: no real AI is wired up yet. Send,
-// attach image, and chat history are all placeholders that will
-// be connected later (e.g. to an Ollama-backed endpoint).
-// ─────────────────────────────────────────────────────────────
+String _timeAgo(dynamic iso) {
+  final date = DateTime.tryParse(iso?.toString() ?? '')?.toLocal();
+
+  if (date == null) return '';
+
+  final diff = DateTime.now().difference(date);
+
+  if (diff.inMinutes < 1) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} h ago';
+  if (diff.inDays == 1) return 'yesterday';
+  if (diff.inDays < 7) return '${diff.inDays} days ago';
+
+  return '${date.day} ${_months[date.month - 1]}';
+}
+
+class _ChatMessage {
+  final bool isUser;
+  final String text;
+  final bool isError;
+
+  // A photo shown inside the user's bubble. Only one of these is set:
+  final Uint8List? image; //        a photo just attached on this device
+  final int? thumbMessageId; //     a saved preview, loaded from the server
+  final String? farmUrl; //         one of the farm's own photos (path)
+  final String? farmLabel; //       e.g. "Layer 1 · Day 6"
+  final bool photoMissing; //       the photo existed but is no longer there
+
+  _ChatMessage({
+    required this.isUser,
+    required this.text,
+    this.isError = false,
+    this.image,
+    this.thumbMessageId,
+    this.farmUrl,
+    this.farmLabel,
+    this.photoMissing = false,
+  });
+}
+
+// One of the farm's own camera photos, chosen in the picker
+class _FarmPhoto {
+  final int imageId;
+  final String path;
+  final String label;
+
+  _FarmPhoto({required this.imageId, required this.path, required this.label});
+}
+
 class AiAssistantPage extends StatefulWidget {
   final Map<String, dynamic> shelf;
   final Map<String, dynamic> organisation;
@@ -58,12 +1061,422 @@ class AiAssistantPage extends StatefulWidget {
 }
 
 class _AiAssistantPageState extends State<AiAssistantPage> {
-  final TextEditingController _chatInputController = TextEditingController();
+  final AssistantService _service = AssistantService();
+  final ImagePicker _picker = ImagePicker();
+
+  final TextEditingController _input = TextEditingController();
+  final ScrollController _scroll = ScrollController();
+
+  final List<_ChatMessage> _messages = [];
+
+  // Previews of earlier uploaded photos, loaded once each
+  final Map<int, Future<Uint8List>> _thumbCache = {};
+
+  int? _conversationId; // null = a new chat that is not saved yet
+  String? _title;
+
+  bool _sending = false;
+  bool _loadingChat = false;
+
+  // The photo attached to the chat: either one uploaded from this device ...
+  Uint8List? _image;
+  String? _imageName;
+  bool _imageShownInChat = false;
+
+  // ... or one of the farm's own photos. It is sent with every question until
+  // the user removes it, so follow-up questions are about the same photo.
+  _FarmPhoto? _farmPhoto;
+  bool _farmShownInChat = false;
+
+  static const List<String> _suggestions = [
+    'What is the best EC for lettuce?',
+    'What pH range should I keep?',
+    'Is my current sensor reading okay?',
+    'What water temperature suits lettuce roots?',
+  ];
+
+  int get _siteId => widget.shelf['site_id'] as int;
+  int get _shelfId => widget.shelf['id'] as int;
+
+  bool get _hasPhoto => _image != null || _farmPhoto != null;
 
   @override
   void dispose() {
-    _chatInputController.dispose();
+    _input.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+
+  Future<void> _send([String? preset]) async {
+    if (_sending || _loadingChat) return;
+
+    final typed = (preset ?? _input.text).trim();
+
+    if (typed.isEmpty && !_hasPhoto) return;
+
+    final question = typed.isEmpty
+        ? 'Please look at this photo of my lettuce and tell me what you see.'
+        : typed;
+
+    final uploadBytes = _image;
+    final uploadName = _imageName;
+    final farm = _farmPhoto;
+
+    // Show a photo in the chat only the first time it is used
+    final showUpload = uploadBytes != null && !_imageShownInChat;
+    final showFarm = farm != null && !_farmShownInChat;
+
+    setState(() {
+      _messages.add(
+        _ChatMessage(
+          isUser: true,
+          text: question,
+          image: showUpload ? uploadBytes : null,
+          farmUrl: showFarm ? farm?.path : null,
+          farmLabel: showFarm ? farm?.label : null,
+        ),
+      );
+
+      if (uploadBytes != null) _imageShownInChat = true;
+      if (farm != null) _farmShownInChat = true;
+
+      _input.clear();
+      _sending = true;
+    });
+
+    _scrollToBottom();
+
+    try {
+      final result = await _service.sendMessage(
+        siteId: _siteId,
+        shelfId: _shelfId,
+        message: question,
+        conversationId: _conversationId,
+        layerImageId: farm?.imageId,
+        imageBytes: uploadBytes,
+        imageName: uploadName,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _conversationId = result['conversation_id'] as int?;
+        _title = result['title']?.toString();
+        _messages.add(
+          _ChatMessage(isUser: false, text: (result['reply'] ?? '').toString()),
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _messages.add(
+          _ChatMessage(
+            isUser: false,
+            isError: true,
+            text: e.toString().replaceFirst('Exception: ', ''),
+          ),
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+        });
+
+        _scrollToBottom();
+      }
+    }
+  }
+
+  void _scrollToBottom({bool jump = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+
+      final end = _scroll.position.maxScrollExtent;
+
+      if (jump) {
+        _scroll.jumpTo(end);
+      } else {
+        _scroll.animateTo(
+          end,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _clearAttachments() {
+    _image = null;
+    _imageName = null;
+    _imageShownInChat = false;
+    _farmPhoto = null;
+    _farmShownInChat = false;
+  }
+
+  // Starts a fresh chat. The old one stays saved in History.
+  void _newChat() {
+    if (_sending) return;
+
+    setState(() {
+      _messages.clear();
+      _conversationId = null;
+      _title = null;
+      _clearAttachments();
+      _input.clear();
+    });
+  }
+
+  _ChatMessage _fromServer(Map<String, dynamic> m) {
+    final rawPhoto = m['photo'];
+
+    final Map<String, dynamic>? photo = rawPhoto is Map
+        ? Map<String, dynamic>.from(rawPhoto)
+        : null;
+
+    int? thumbMessageId;
+    String? farmUrl;
+    String? farmLabel;
+    bool photoMissing = false;
+
+    if (photo != null) {
+      final kind = photo['kind'];
+      final available = photo['available'] == true;
+
+      if (kind == 'upload' && available) {
+        thumbMessageId = m['id'] as int;
+      } else if (kind == 'farm') {
+        farmLabel = photo['label']?.toString();
+
+        if (available) {
+          farmUrl = photo['url']?.toString();
+        }
+      }
+
+      photoMissing = !available;
+    }
+
+    return _ChatMessage(
+      isUser: m['role'] == 'user',
+      text: (m['text'] ?? '').toString(),
+      thumbMessageId: thumbMessageId,
+      farmUrl: farmUrl,
+      farmLabel: farmLabel,
+      photoMissing: photoMissing,
+    );
+  }
+
+  Future<void> _openConversation(int id) async {
+    setState(() {
+      _loadingChat = true;
+    });
+
+    try {
+      final data = await _service.getConversation(
+        siteId: _siteId,
+        shelfId: _shelfId,
+        conversationId: id,
+      );
+
+      if (!mounted) return;
+
+      final loaded = (data['messages'] as List)
+          .map((m) => _fromServer(Map<String, dynamic>.from(m as Map)))
+          .toList();
+
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(loaded);
+        _conversationId = id;
+        _title = data['title']?.toString();
+        _clearAttachments();
+        _loadingChat = false;
+      });
+
+      _scrollToBottom(jump: true);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingChat = false;
+      });
+
+      _toast(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  void _toast(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  // Camera is offered on phones and the web; desktop only has the gallery
+  bool get _cameraAvailable =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+
+      if (file == null) return;
+
+      final bytes = await file.readAsBytes();
+
+      if (!mounted) return;
+
+      setState(() {
+        _clearAttachments();
+        _image = bytes;
+        _imageName = file.name;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      _toast('Could not open the photo picker.');
+    }
+  }
+
+  Future<void> _pickFarmPhoto() async {
+    final picked = await showModalBottomSheet<_FarmPhoto>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) {
+        return _FarmPhotoSheet(
+          layerService: LayerService(),
+          siteId: _siteId,
+          shelfId: _shelfId,
+        );
+      },
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _clearAttachments();
+      _farmPhoto = picked;
+    });
+  }
+
+  void _chooseImageSource() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _sourceTile(
+                  sheetContext,
+                  Icons.spa_outlined,
+                  'Farm photo',
+                  'A photo taken by one of your cameras',
+                  _pickFarmPhoto,
+                ),
+                _sourceTile(
+                  sheetContext,
+                  Icons.photo_library_outlined,
+                  'Choose from gallery',
+                  'A photo from this device',
+                  () => _pickImage(ImageSource.gallery),
+                ),
+                if (_cameraAvailable)
+                  _sourceTile(
+                    sheetContext,
+                    Icons.photo_camera_outlined,
+                    'Take a photo',
+                    'Use the camera now',
+                    () => _pickImage(ImageSource.camera),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sourceTile(
+    BuildContext sheetContext,
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) {
+    return ListTile(
+      leading: GrowthStyle.iconChip(
+        icon,
+        GrowthColors.accentStrong,
+        GrowthColors.accentSoft,
+        size: 42,
+      ),
+      title: Text(
+        title,
+        style: GrowthStyle.text(size: 14.5, weight: FontWeight.w700),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GrowthStyle.text(
+          size: 12,
+          weight: FontWeight.w400,
+          color: GrowthColors.muted,
+        ),
+      ),
+      onTap: () {
+        Navigator.pop(sheetContext);
+        onTap();
+      },
+    );
+  }
+
+  void _showHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) {
+        return _HistorySheet(
+          service: _service,
+          siteId: _siteId,
+          shelfId: _shelfId,
+          currentId: _conversationId,
+          onOpen: (id) {
+            Navigator.pop(sheetContext);
+            _openConversation(id);
+          },
+          onDeleted: (id) {
+            // Deleting the chat that is open starts a fresh one
+            if (id == _conversationId) _newChat();
+          },
+        );
+      },
+    );
   }
 
   // ============================================================
@@ -72,289 +1485,478 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.embedded) {
-      return Container(color: FarmTabTheme.white, child: _buildContent());
-    }
+    final body = Container(color: GrowthColors.page, child: _buildContent());
+
+    if (widget.embedded) return body;
 
     return Scaffold(
-      backgroundColor: FarmTabTheme.white,
+      backgroundColor: GrowthColors.page,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 3,
-        shadowColor: FarmTabTheme.fern.withOpacity(0.35),
-        centerTitle: false,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-        ),
-        iconTheme: const IconThemeData(color: FarmTabTheme.white),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [FarmTabTheme.fern, Color(0xFF52B788)],
-            ),
-          ),
-        ),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: GrowthColors.ink),
         title: Text(
           'AI Assistant',
-          style: FarmTabTheme.font(
-            size: 17,
-            weight: FontWeight.w700,
-            color: FarmTabTheme.white,
-            letterSpacing: -0.2,
-          ),
+          style: GrowthStyle.text(size: 17, weight: FontWeight.w800),
         ),
-        actions: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: _showChatHistory,
-              child: Container(
-                width: 38,
-                height: 38,
-                margin: const EdgeInsets.only(right: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.25)),
-                ),
-                child: const Icon(
-                  Icons.history_rounded,
-                  size: 19,
-                  color: FarmTabTheme.white,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
-      body: _buildContent(),
+      body: body,
     );
   }
 
   Widget _buildContent() {
     return Column(
       children: [
-        // ── Embedded header row with chat history button
-        // (only shown when embedded inside another page's own
-        // AppBar, e.g. Shelf Detail's function tabs).
-        if (widget.embedded) _buildEmbeddedHeader(),
+        _buildHeader(),
+        Expanded(child: _buildBody()),
+        if (_hasPhoto) _buildAttachmentChip(),
+        _buildInputBar(),
+      ],
+    );
+  }
 
-        // ── Empty conversation state
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 84,
-                    height: 84,
-                    decoration: BoxDecoration(
-                      color: FarmTabTheme.mist,
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: const Icon(
-                      Icons.smart_toy_rounded,
-                      size: 38,
-                      color: FarmTabTheme.fern,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Ask me anything',
-                    style: FarmTabTheme.font(
-                      size: 19,
-                      weight: FontWeight.w700,
-                      color: FarmTabTheme.textH,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Ask about this shelf\'s sensor readings, growing '
-                    'cycle, or anything else on your mind.',
-                    textAlign: TextAlign.center,
-                    style: FarmTabTheme.font(
-                      size: 13,
-                      weight: FontWeight.w400,
-                      color: FarmTabTheme.textM,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+  Widget _buildBody() {
+    if (_loadingChat) {
+      return const Center(
+        child: CircularProgressIndicator(color: GrowthColors.accent),
+      );
+    }
 
-        // ── Chat input bar
-        Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: const BoxDecoration(
-            color: FarmTabTheme.white,
-            border: Border(top: BorderSide(color: FarmTabTheme.border)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+    return _messages.isEmpty ? _buildEmptyState() : _buildMessageList();
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 10, 8, 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: GrowthColors.line)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Attach image button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: _showComingSoonChatAction,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F7F7),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.image_outlined,
-                        size: 20,
-                        color: FarmTabTheme.textM,
-                      ),
-                    ),
-                  ),
+                Text(
+                  _title ?? 'Ask about your farm',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GrowthStyle.text(size: 14.5, weight: FontWeight.w700),
                 ),
-
-                const SizedBox(width: 8),
-
-                // ── Text input
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(maxHeight: 120),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7F7),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: TextField(
-                      controller: _chatInputController,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.newline,
-                      style: FarmTabTheme.font(
-                        size: 14,
-                        weight: FontWeight.w400,
-                        color: FarmTabTheme.textH,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Message AI Assistant…',
-                        hintStyle: FarmTabTheme.font(
-                          size: 14,
-                          weight: FontWeight.w400,
-                          color: FarmTabTheme.textM,
-                        ),
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 11,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // ── Send button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: _showComingSoonChatAction,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [FarmTabTheme.grove, FarmTabTheme.fern],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: FarmTabTheme.fern.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.send_rounded,
-                        size: 18,
-                        color: FarmTabTheme.white,
-                      ),
-                    ),
+                Text(
+                  _conversationId == null
+                      ? 'Questions, or a photo of your lettuce'
+                      : 'Saved chat',
+                  style: GrowthStyle.text(
+                    size: 12,
+                    weight: FontWeight.w400,
+                    color: GrowthColors.muted,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          IconButton(
+            tooltip: 'Chat history',
+            onPressed: _showHistory,
+            icon: const Icon(
+              Icons.history_rounded,
+              color: GrowthColors.accentStrong,
+            ),
+          ),
+          IconButton(
+            tooltip: 'New chat',
+            onPressed: (_messages.isEmpty || _sending) ? null : _newChat,
+            icon: const Icon(Icons.add_comment_outlined),
+            color: GrowthColors.accentStrong,
+            disabledColor: GrowthColors.muted.withOpacity(0.5),
+          ),
+        ],
+      ),
     );
   }
 
-  // ------------------------------------------------------------
-  // When embedded inside Shelf Detail's own header/tabs, there's
-  // no AppBar of our own to put the "Chat History" icon in — so
-  // we show a slim header row here instead.
-  // ------------------------------------------------------------
-  Widget _buildEmbeddedHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      decoration: const BoxDecoration(
-        color: FarmTabTheme.white,
-        border: Border(bottom: BorderSide(color: FarmTabTheme.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Chat with AI Assistant',
-              style: FarmTabTheme.font(
-                size: 14,
-                weight: FontWeight.w600,
-                color: FarmTabTheme.textM,
+  // ── Empty state with example questions
+  Widget _buildEmptyState() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF52C48F), Color(0xFF86DDB6)],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.smart_toy_rounded,
+                  size: 36,
+                  color: Colors.white,
+                ),
               ),
+              const SizedBox(height: 18),
+              Text(
+                'How can I help?',
+                style: GrowthStyle.text(
+                  size: 20,
+                  weight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Ask about the best pH, EC, temperature or ORP for lettuce, '
+                'check your readings, or analyse a photo of your plants.',
+                textAlign: TextAlign.center,
+                style: GrowthStyle.text(
+                  size: 13,
+                  weight: FontWeight.w400,
+                  color: GrowthColors.muted,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final text in _suggestions)
+                    ActionChip(
+                      label: Text(
+                        text,
+                        style: GrowthStyle.text(
+                          size: 12.5,
+                          weight: FontWeight.w600,
+                          color: GrowthColors.body,
+                        ),
+                      ),
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: GrowthColors.line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      onPressed: () => _send(text),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(
+                      Icons.spa_outlined,
+                      size: 16,
+                      color: GrowthColors.accentStrong,
+                    ),
+                    label: Text(
+                      'Analyze a farm photo',
+                      style: GrowthStyle.text(
+                        size: 12.5,
+                        weight: FontWeight.w700,
+                        color: GrowthColors.accentStrong,
+                      ),
+                    ),
+                    backgroundColor: GrowthColors.accentSoft,
+                    side: const BorderSide(color: GrowthColors.accentMid),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    onPressed: _pickFarmPhoto,
+                  ),
+                  ActionChip(
+                    avatar: const Icon(
+                      Icons.add_photo_alternate_outlined,
+                      size: 16,
+                      color: GrowthColors.accentStrong,
+                    ),
+                    label: Text(
+                      'Upload a photo',
+                      style: GrowthStyle.text(
+                        size: 12.5,
+                        weight: FontWeight.w700,
+                        color: GrowthColors.accentStrong,
+                      ),
+                    ),
+                    backgroundColor: GrowthColors.accentSoft,
+                    side: const BorderSide(color: GrowthColors.accentMid),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── The conversation
+  Widget _buildMessageList() {
+    return SelectionArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: ListView.builder(
+            controller: _scroll,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            itemCount: _messages.length + (_sending ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == _messages.length) return _buildTypingBubble();
+
+              final message = _messages[index];
+
+              return message.isUser
+                  ? _buildUserBubble(message)
+                  : _buildAssistantBubble(message);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _bubbleMaxWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return (width * 0.82).clamp(220.0, 600.0).toDouble();
+  }
+
+  Future<Uint8List> _thumb(int messageId) {
+    return _thumbCache.putIfAbsent(
+      messageId,
+      () => _service.getMessageImage(
+        siteId: _siteId,
+        shelfId: _shelfId,
+        messageId: messageId,
+      ),
+    );
+  }
+
+  Widget _photoPlaceholder(IconData? icon) {
+    return Container(
+      color: GrowthColors.accentSoft,
+      alignment: Alignment.center,
+      child: icon == null
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: GrowthColors.accent,
+              ),
+            )
+          : Icon(icon, color: GrowthColors.muted),
+    );
+  }
+
+  // The photo inside a user's bubble (or null when the message has none)
+  Widget? _bubblePhoto(_ChatMessage m) {
+    Widget? picture;
+
+    if (m.image != null) {
+      picture = Image.memory(m.image!, fit: BoxFit.cover);
+    } else if (m.thumbMessageId != null) {
+      picture = FutureBuilder<Uint8List>(
+        future: _thumb(m.thumbMessageId!),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Image.memory(snapshot.data!, fit: BoxFit.cover);
+          }
+
+          return _photoPlaceholder(
+            snapshot.hasError ? Icons.broken_image_outlined : null,
+          );
+        },
+      );
+    } else if (m.farmUrl != null) {
+      picture = Image.network(
+        LayerService.imageUrl(m.farmUrl!),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _photoPlaceholder(Icons.broken_image_outlined),
+      );
+    } else if (m.photoMissing) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.25),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          'Photo no longer available',
+          style: GrowthStyle.text(
+            size: 11.5,
+            weight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      );
+    } else {
+      return null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 220,
+          height: 160,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              picture,
+              if (m.farmLabel != null)
+                Positioned(
+                  left: 8,
+                  bottom: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      m.farmLabel!,
+                      style: GrowthStyle.text(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserBubble(_ChatMessage message) {
+    final photo = _bubblePhoto(message);
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: _bubbleMaxWidth(context)),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14, left: 40),
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(
+            color: GrowthColors.accent,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(18),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(4),
             ),
           ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: _showChatHistory,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (photo != null) photo,
+              Text(
+                message.text,
+                style: GrowthStyle.text(
+                  size: 14,
+                  weight: FontWeight.w500,
+                  color: Colors.white,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _assistantAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      margin: const EdgeInsets.only(right: 8, top: 2),
+      decoration: const BoxDecoration(
+        color: GrowthColors.accentSoft,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.smart_toy_rounded,
+        size: 17,
+        color: GrowthColors.accentStrong,
+      ),
+    );
+  }
+
+  Widget _buildAssistantBubble(_ChatMessage message) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _assistantAvatar(),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: _bubbleMaxWidth(context)),
               child: Container(
-                width: 34,
-                height: 34,
+                margin: const EdgeInsets.only(bottom: 14, right: 24),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F7),
-                  borderRadius: BorderRadius.circular(10),
+                  color: message.isError ? GrowthColors.redSoft : Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                    bottomRight: Radius.circular(18),
+                  ),
+                  border: Border.all(
+                    color: message.isError
+                        ? const Color(0xFFF4B9BE)
+                        : GrowthColors.line,
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.history_rounded,
-                  size: 17,
-                  color: FarmTabTheme.textM,
-                ),
+                child: message.isError
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            size: 18,
+                            color: GrowthColors.red,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              message.text,
+                              style: GrowthStyle.text(
+                                size: 13.5,
+                                weight: FontWeight.w500,
+                                color: GrowthColors.red,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : _formattedText(message.text),
               ),
             ),
           ),
@@ -363,79 +1965,651 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
     );
   }
 
-  void _showComingSoonChatAction() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('The AI Assistant will be connected soon.')),
+  Widget _buildTypingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _assistantAvatar(),
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: GrowthColors.line),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: GrowthColors.accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Thinking...',
+                  style: GrowthStyle.text(
+                    size: 13,
+                    weight: FontWeight.w500,
+                    color: GrowthColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  void _showChatHistory() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: FarmTabTheme.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (bottomSheetContext) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
+  // ------------------------------------------------------------
+  // The assistant writes plain text with "- " bullets and **bold**.
+  // This shows those nicely without needing a markdown package.
+  // ------------------------------------------------------------
+  Widget _formattedText(String text) {
+    final base = GrowthStyle.text(
+      size: 14,
+      weight: FontWeight.w400,
+      color: GrowthColors.ink,
+      height: 1.5,
+    );
+
+    final children = <Widget>[];
+
+    for (final rawLine in text.split('\n')) {
+      final line = rawLine.replaceAll('`', '').trimRight();
+      final trimmed = line.trimLeft();
+
+      if (trimmed.isEmpty) {
+        children.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      // Headings (# ...) become a bold line
+      if (trimmed.startsWith('#')) {
+        final heading = trimmed.replaceFirst(RegExp(r'^#+\s*'), '');
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 2),
+            child: Text(
+              heading.replaceAll('**', ''),
+              style: base.copyWith(fontWeight: FontWeight.w800),
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Chat History',
-                    style: FarmTabTheme.font(
-                      size: 18,
-                      weight: FontWeight.w700,
-                      color: FarmTabTheme.textH,
+          ),
+        );
+        continue;
+      }
+
+      final bullet = RegExp(r'^[-*\u2022]\s+(.*)$').firstMatch(trimmed);
+      final numbered = RegExp(r'^(\d+[.)])\s+(.*)$').firstMatch(trimmed);
+
+      if (bullet != null || numbered != null) {
+        final marker = bullet != null ? '\u2022' : numbered!.group(1)!;
+        final content = bullet != null ? bullet.group(1)! : numbered!.group(2)!;
+
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 3, left: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 22,
+                  child: Text(
+                    marker,
+                    style: base.copyWith(
+                      color: GrowthColors.accentStrong,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: FarmTabTheme.mist,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: const Icon(
-                            Icons.history_rounded,
-                            size: 28,
-                            color: FarmTabTheme.fern,
+                ),
+                Expanded(
+                  child: Text.rich(TextSpan(children: _spans(content, base))),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text.rich(TextSpan(children: _spans(line, base))),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
+  // **bold** text between double asterisks
+  List<InlineSpan> _spans(String text, TextStyle base) {
+    final parts = text.split('**');
+
+    return [
+      for (int i = 0; i < parts.length; i++)
+        TextSpan(
+          text: parts[i],
+          style: i.isOdd ? base.copyWith(fontWeight: FontWeight.w800) : base,
+        ),
+    ];
+  }
+
+  // ── The attached photo, shown above the input
+  Widget _buildAttachmentChip() {
+    final Widget thumbnail;
+    final String title;
+
+    if (_farmPhoto != null) {
+      thumbnail = Image.network(
+        LayerService.imageUrl(_farmPhoto!.path),
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: 44,
+          height: 44,
+          color: GrowthColors.line,
+          child: const Icon(Icons.image_not_supported_outlined, size: 18),
+        ),
+      );
+      title = 'Farm photo \u00B7 ${_farmPhoto!.label}';
+    } else {
+      thumbnail = Image.memory(
+        _image!,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+      );
+      title = 'Photo attached';
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: GrowthColors.accentSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: thumbnail,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GrowthStyle.text(
+                          size: 12.5,
+                          weight: FontWeight.w700,
+                          color: GrowthColors.accentStrong,
+                        ),
+                      ),
+                      Text(
+                        'Used for your questions until you remove it',
+                        style: GrowthStyle.text(
+                          size: 11,
+                          weight: FontWeight.w400,
+                          color: GrowthColors.body,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove photo',
+                  onPressed: () => setState(_clearAttachments),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 20,
+                    color: GrowthColors.body,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Text field, attach and send buttons
+  Widget _buildInputBar() {
+    final canSend =
+        !_sending &&
+        !_loadingChat &&
+        (_input.text.trim().isNotEmpty || _hasPhoto);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: GrowthColors.line)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Material(
+                      color: GrowthColors.page,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: (_sending || _loadingChat)
+                            ? null
+                            : _chooseImageSource,
+                        child: const SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 22,
+                            color: GrowthColors.accentStrong,
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'No past conversations yet',
-                          style: FarmTabTheme.font(
-                            size: 14.5,
-                            weight: FontWeight.w600,
-                            color: FarmTabTheme.textH,
-                          ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        decoration: BoxDecoration(
+                          color: GrowthColors.page,
+                          borderRadius: BorderRadius.circular(22),
                         ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Conversations with this shelf\'s AI Assistant '
-                          'will appear here.',
-                          textAlign: TextAlign.center,
-                          style: FarmTabTheme.font(
-                            size: 12.5,
+                        child: TextField(
+                          controller: _input,
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.newline,
+                          onChanged: (_) => setState(() {}),
+                          style: GrowthStyle.text(
+                            size: 14,
                             weight: FontWeight.w400,
-                            color: FarmTabTheme.textM,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: _hasPhoto
+                                ? 'Ask about this photo...'
+                                : 'Message the assistant...',
+                            hintStyle: GrowthStyle.text(
+                              size: 14,
+                              weight: FontWeight.w400,
+                              color: GrowthColors.muted,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Material(
+                      color: canSend ? GrowthColors.accent : GrowthColors.line,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: canSend ? () => _send() : null,
+                        child: const SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 22,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'AI can make mistakes. Check important decisions.',
+                  style: GrowthStyle.text(
+                    size: 10.5,
+                    weight: FontWeight.w400,
+                    color: GrowthColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// HISTORY SHEET: the user's saved chats for this shelf
+// ─────────────────────────────────────────────────────────────
+
+class _HistorySheet extends StatefulWidget {
+  final AssistantService service;
+  final int siteId;
+  final int shelfId;
+  final int? currentId;
+  final void Function(int id) onOpen;
+  final void Function(int id) onDeleted;
+
+  const _HistorySheet({
+    required this.service,
+    required this.siteId,
+    required this.shelfId,
+    required this.currentId,
+    required this.onOpen,
+    required this.onDeleted,
+  });
+
+  @override
+  State<_HistorySheet> createState() => _HistorySheetState();
+}
+
+class _HistorySheetState extends State<_HistorySheet> {
+  List<Map<String, dynamic>> _chats = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final chats = await widget.service.listConversations(
+        siteId: widget.siteId,
+        shelfId: widget.shelfId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _chats = chats;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _confirmDelete(Map<String, dynamic> chat) async {
+    final id = chat['id'] as int;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            'Delete this chat?',
+            style: GrowthStyle.text(size: 16, weight: FontWeight.w800),
+          ),
+          content: Text(
+            '"${chat['title']}" and all its messages will be removed.',
+            style: GrowthStyle.text(
+              size: 13.5,
+              weight: FontWeight.w400,
+              color: GrowthColors.body,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                'Cancel',
+                style: GrowthStyle.text(
+                  size: 13.5,
+                  weight: FontWeight.w600,
+                  color: GrowthColors.muted,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GrowthColors.red,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                'Delete',
+                style: GrowthStyle.text(
+                  size: 13.5,
+                  weight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await widget.service.deleteConversation(
+        siteId: widget.siteId,
+        shelfId: widget.shelfId,
+        conversationId: id,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _chats.removeWhere((c) => c['id'] == id);
+      });
+
+      widget.onDeleted(id);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.7;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Chat history',
+                style: GrowthStyle.text(
+                  size: 18,
+                  weight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(child: _buildBody()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: CircularProgressIndicator(color: GrowthColors.accent),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          children: [
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: GrowthStyle.text(
+                size: 13.5,
+                weight: FontWeight.w400,
+                color: GrowthColors.body,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _load,
+              style: GrowthStyle.outlinedButton,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_chats.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          children: [
+            GrowthStyle.iconChip(
+              Icons.history_rounded,
+              GrowthColors.accentStrong,
+              GrowthColors.accentSoft,
+              size: 60,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'No saved chats yet',
+              style: GrowthStyle.text(size: 14.5, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Your conversations will appear here.',
+              style: GrowthStyle.text(
+                size: 12.5,
+                weight: FontWeight.w400,
+                color: GrowthColors.muted,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      itemCount: _chats.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final chat = _chats[index];
+        final isCurrent = chat['id'] == widget.currentId;
+        final count = chat['message_count'] ?? 0;
+
+        return Material(
+          color: isCurrent ? GrowthColors.accentSoft : GrowthColors.page,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => widget.onOpen(chat['id'] as int),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          chat['title']?.toString() ?? 'Chat',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GrowthStyle.text(
+                            size: 13.5,
+                            weight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '$count messages  \u00B7  ${_timeAgo(chat['updated_at'])}',
+                          style: GrowthStyle.text(
+                            size: 11.5,
+                            weight: FontWeight.w400,
+                            color: GrowthColors.muted,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete chat',
+                    onPressed: () => _confirmDelete(chat),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 20,
+                      color: GrowthColors.muted,
                     ),
                   ),
                 ],
@@ -444,6 +2618,431 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
           ),
         );
       },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// FARM PHOTO SHEET: pick a layer, then a day, from the cameras' photos
+// ─────────────────────────────────────────────────────────────
+
+class _FarmPhotoSheet extends StatefulWidget {
+  final LayerService layerService;
+  final int siteId;
+  final int shelfId;
+
+  const _FarmPhotoSheet({
+    required this.layerService,
+    required this.siteId,
+    required this.shelfId,
+  });
+
+  @override
+  State<_FarmPhotoSheet> createState() => _FarmPhotoSheetState();
+}
+
+class _FarmPhotoSheetState extends State<_FarmPhotoSheet> {
+  List<Map<String, dynamic>> _layers = [];
+  bool _loading = true;
+  String? _error;
+
+  // Step 2: the photos of one layer
+  Map<String, dynamic>? _layer;
+  List<_FarmPhoto> _photos = [];
+  bool _loadingPhotos = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLayers();
+  }
+
+  Future<void> _loadLayers() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final layers = await widget.layerService.getShelfLayers(
+        siteId: widget.siteId,
+        shelfId: widget.shelfId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _layers = layers;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _openLayer(Map<String, dynamic> layer) async {
+    setState(() {
+      _layer = layer;
+      _photos = [];
+      _loadingPhotos = true;
+    });
+
+    final name = layer['display_name']?.toString() ?? 'Layer';
+
+    try {
+      final detail = await widget.layerService.getLayerDetail(
+        siteId: widget.siteId,
+        shelfId: widget.shelfId,
+        layerId: layer['layer_id'] as int,
+      );
+
+      if (!mounted) return;
+
+      final days = (detail['days'] as List?) ?? const [];
+      final photos = <_FarmPhoto>[];
+
+      // Newest first
+      for (final d in days.reversed) {
+        final day = Map<String, dynamic>.from(d as Map);
+
+        if (day['image'] == null) continue;
+
+        final image = Map<String, dynamic>.from(day['image'] as Map);
+
+        photos.add(
+          _FarmPhoto(
+            imageId: image['id'] as int,
+            path: image['image_url'].toString(),
+            label: '$name \u00B7 Day ${day['day']}',
+          ),
+        );
+      }
+
+      // A layer without a growing cycle: offer its latest photo
+      if (photos.isEmpty && layer['latest_image'] != null) {
+        final image = Map<String, dynamic>.from(layer['latest_image'] as Map);
+
+        photos.add(
+          _FarmPhoto(
+            imageId: image['id'] as int,
+            path: image['image_url'].toString(),
+            label: '$name \u00B7 Latest photo',
+          ),
+        );
+      }
+
+      setState(() {
+        _photos = photos;
+        _loadingPhotos = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingPhotos = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.75;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+          child: _layer == null ? _buildLayerStep() : _buildPhotoStep(),
+        ),
+      ),
+    );
+  }
+
+  Widget _heading(String title, String subtitle, {VoidCallback? onBack}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          if (onBack != null)
+            IconButton(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+            ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GrowthStyle.text(
+                    size: 18,
+                    weight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GrowthStyle.text(
+                    size: 12.5,
+                    weight: FontWeight.w400,
+                    color: GrowthColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Step 1: the layers
+  Widget _buildLayerStep() {
+    Widget content;
+
+    if (_loading) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: CircularProgressIndicator(color: GrowthColors.accent),
+        ),
+      );
+    } else if (_error != null) {
+      content = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          children: [
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: GrowthStyle.text(
+                size: 13.5,
+                weight: FontWeight.w400,
+                color: GrowthColors.body,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _loadLayers,
+              style: GrowthStyle.outlinedButton,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      content = GridView.builder(
+        shrinkWrap: true,
+        itemCount: _layers.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.15,
+        ),
+        itemBuilder: (context, index) => _layerTile(_layers[index]),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _heading('Choose a layer', 'Then pick the day of the photo'),
+        Flexible(child: content),
+      ],
+    );
+  }
+
+  Widget _layerTile(Map<String, dynamic> layer) {
+    final image = layer['latest_image'] == null
+        ? null
+        : Map<String, dynamic>.from(layer['latest_image'] as Map);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: image == null ? null : () => _openLayer(layer),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: GrowthColors.line),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: image == null
+                      ? Container(
+                          color: GrowthColors.page,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.no_photography_outlined,
+                            color: GrowthColors.muted,
+                          ),
+                        )
+                      : Image.network(
+                          LayerService.imageUrl(image['image_url'].toString()),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                color: GrowthColors.page,
+                                child: const Icon(
+                                  Icons.broken_image_outlined,
+                                  color: GrowthColors.muted,
+                                ),
+                              ),
+                        ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      layer['display_name']?.toString() ?? 'Layer',
+                      style: GrowthStyle.text(
+                        size: 13,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      image == null
+                          ? 'No photo yet'
+                          : _shortDateTime(image['captured_at']),
+                      style: GrowthStyle.text(
+                        size: 11,
+                        weight: FontWeight.w400,
+                        color: GrowthColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Step 2: the photos of the chosen layer
+  Widget _buildPhotoStep() {
+    final name = _layer?['display_name']?.toString() ?? 'Layer';
+
+    Widget content;
+
+    if (_loadingPhotos) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: CircularProgressIndicator(color: GrowthColors.accent),
+        ),
+      );
+    } else if (_photos.isEmpty) {
+      content = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text(
+            _error ?? 'No photos for this layer yet.',
+            textAlign: TextAlign.center,
+            style: GrowthStyle.text(
+              size: 13.5,
+              weight: FontWeight.w400,
+              color: GrowthColors.muted,
+            ),
+          ),
+        ),
+      );
+    } else {
+      content = ListView.separated(
+        shrinkWrap: true,
+        itemCount: _photos.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final photo = _photos[index];
+
+          return Material(
+            color: GrowthColors.page,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => Navigator.pop(context, photo),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        LayerService.imageUrl(photo.path),
+                        width: 72,
+                        height: 54,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 72,
+                          height: 54,
+                          color: GrowthColors.line,
+                          child: const Icon(
+                            Icons.broken_image_outlined,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        photo.label,
+                        style: GrowthStyle.text(
+                          size: 13.5,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (index == 0)
+                      GrowthStyle.pill(
+                        'Latest',
+                        GrowthColors.accentStrong,
+                        GrowthColors.accentSoft,
+                      ),
+                    const SizedBox(width: 6),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _heading(
+          name,
+          'Choose the photo to analyse',
+          onBack: () => setState(() {
+            _layer = null;
+            _error = null;
+          }),
+        ),
+        Flexible(child: content),
+      ],
     );
   }
 }
