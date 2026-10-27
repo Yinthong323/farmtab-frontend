@@ -2191,7 +2191,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
   @override
   Widget build(BuildContext context) {
     final content = Container(
-      color: GrowthColors.page,
+      color: Colors.white,
       child: RefreshIndicator(
         color: GrowthColors.accent,
         onRefresh: _loadLayers,
@@ -2340,7 +2340,7 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color.fromARGB(255, 74, 190, 132),
+          color: const Color.fromARGB(255, 194, 236, 216),
           width: 1.5,
         ),
         boxShadow: [

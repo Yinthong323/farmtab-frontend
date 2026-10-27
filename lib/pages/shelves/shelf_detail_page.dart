@@ -152,6 +152,9 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
 
   ShelfFunction _selectedFunction = ShelfFunction.sensorMonitoring;
 
+  // Connects the History / New chat buttons in the title row to the AI chat
+  final AssistantController _assistantController = AssistantController();
+
   // ------------------------------------------------------------
   // Calibration state
   // ------------------------------------------------------------
@@ -192,6 +195,7 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
   @override
   void dispose() {
     _sensorTabController.dispose();
+    _assistantController.dispose();
     _sensorChannel?.sink.close();
     _referenceController.dispose();
 
@@ -648,10 +652,60 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
               color: FarmTabTheme.textH,
             ),
           ),
+          const Spacer(),
+          if (_selectedFunction == ShelfFunction.aiAssistant)
+            ..._buildAssistantHeaderActions(),
         ],
       ),
     );
   }
+
+  // History and New chat sit at the right of the "AI Assistant" title row.
+  // They talk to the chat page through _assistantController.
+  List<Widget> _buildAssistantHeaderActions() {
+    return [
+      AnimatedBuilder(
+        animation: _assistantController,
+        builder: (context, _) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Chat history',
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 36,
+                ),
+                onPressed: _assistantController.openHistory,
+                icon: const Icon(
+                  Icons.history_rounded,
+                  color: Color(0xFF2A9D6B),
+                ),
+              ),
+              IconButton(
+                tooltip: 'New chat',
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 36,
+                ),
+                onPressed: _assistantController.canStartNewChat
+                    ? _assistantController.newChat
+                    : null,
+                icon: const Icon(Icons.add_comment_outlined),
+                color: const Color(0xFF2A9D6B),
+                disabledColor: const Color(0xFFB8C4BD),
+              ),
+            ],
+          );
+        },
+      ),
+    ];
+  }
+
   // ============================================================
   // SHELF FUNCTION NAVIGATION
   // ============================================================
@@ -693,6 +747,7 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
           shelf: widget.shelf,
           organisation: widget.organisation,
           embedded: true,
+          controller: _assistantController,
         );
 
       case ShelfFunction.deviceManagement:
@@ -2086,16 +2141,16 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
 
                 _buildFunctionTile(
                   bottomSheetContext: bottomSheetContext,
-                  icon: Icons.science_rounded,
-                  title: 'Simulation',
-                  function: ShelfFunction.simulation,
+                  icon: Icons.smart_toy_rounded,
+                  title: 'AI Assistant',
+                  function: ShelfFunction.aiAssistant,
                 ),
 
                 _buildFunctionTile(
                   bottomSheetContext: bottomSheetContext,
-                  icon: Icons.smart_toy_rounded,
-                  title: 'AI Assistant',
-                  function: ShelfFunction.aiAssistant,
+                  icon: Icons.science_rounded,
+                  title: 'Simulation',
+                  function: ShelfFunction.simulation,
                 ),
 
                 _buildFunctionTile(
