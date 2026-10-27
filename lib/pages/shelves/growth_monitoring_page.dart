@@ -2266,13 +2266,14 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
     );
   }
 
-  // One column on phones, two columns on wider screens.
+  // 1 column on a phone, 2 on a tablet, 3 on a wide computer window.
   Widget _buildLayerGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final twoColumns = constraints.maxWidth >= 600;
+        final width = constraints.maxWidth;
+        final columns = width >= 1200 ? 3 : (width >= 600 ? 2 : 1);
 
-        if (!twoColumns) {
+        if (columns == 1) {
           return Column(
             children: [
               for (final layer in _layers) ...[
@@ -2285,18 +2286,19 @@ class _GrowthMonitoringPageState extends State<GrowthMonitoringPage> {
 
         final rows = <Widget>[];
 
-        for (int i = 0; i < _layers.length; i += 2) {
+        for (int i = 0; i < _layers.length; i += columns) {
           rows.add(
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildLayerCard(_layers[i])),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: i + 1 < _layers.length
-                      ? _buildLayerCard(_layers[i + 1])
-                      : const SizedBox(),
-                ),
+                for (int j = 0; j < columns; j++) ...[
+                  if (j > 0) const SizedBox(width: 14),
+                  Expanded(
+                    child: i + j < _layers.length
+                        ? _buildLayerCard(_layers[i + j])
+                        : const SizedBox(),
+                  ),
+                ],
               ],
             ),
           );

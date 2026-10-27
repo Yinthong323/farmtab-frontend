@@ -136,6 +136,10 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
 
   int _selectedHistorySensor = 0;
 
+  // false = a steady scale built around the normal range (default)
+  // true  = zoom in on the data, so even tiny changes are visible
+  bool _historyZoomToData = false;
+
   String? _sensorError;
 
   final NotificationService _notificationService = NotificationService();
@@ -1689,6 +1693,233 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
     }
   }
 
+  // ============================================================
+  // SENSOR TREND CHART
+  // ============================================================
+  // The scale is built around the shelf's normal range (its threshold limits),
+  // so a small change stays a small change. The normal range is shaded and
+  // readings outside it are red. "Zoom in on changes" gives a tight scale for
+  // studying small movements.
+
+  // The scale is never tighter than this (in the sensor's own unit)
+  static const Map<String, double> _historyMinSpan = {
+    'ph': 2.0,
+    'ec': 800.0,
+    'temperature': 8.0,
+    'orp': 200.0,
+  };
+
+  int _historyDecimals(String sensorKey) {
+    return switch (sensorKey) {
+      'ph' => 2,
+      'temperature' => 1,
+      _ => 0,
+    };
+  }
+
+  String _formatLimit(double value) {
+    return value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toString();
+  }
+
+  // The threshold limits of one sensor, or null when they are not set
+  ({double min, double max})? _limitsFor(String sensorKey) {
+    final thresholds = _shelfThresholds;
+
+    if (thresholds == null) return null;
+
+    final prefix = switch (sensorKey) {
+      'ph' => 'ph',
+      'ec' => 'ec',
+      'temperature' => 'temperature',
+      _ => 'orp',
+    };
+
+    final lo = _asNum(thresholds['${prefix}_min'])?.toDouble();
+    final hi = _asNum(thresholds['${prefix}_max'])?.toDouble();
+
+    if (lo == null || hi == null || lo >= hi) return null;
+
+    return (min: lo, max: hi);
+  }
+
+  // 1, 2, 5 or 10 times a power of ten, giving about 5 labels
+  double _niceInterval(double span) {
+    final raw = span / 5;
+    final magnitude = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+    final fraction = raw / magnitude;
+
+    final nice = fraction <= 1
+        ? 1
+        : fraction <= 2
+        ? 2
+        : fraction <= 5
+        ? 5
+        : 10;
+
+    return nice * magnitude;
+  }
+
+  ({double min, double max, double interval}) _historyAxis({
+    required String sensorKey,
+    required double dataMin,
+    required double dataMax,
+    required ({double min, double max})? limits,
+  }) {
+    double lo = dataMin;
+    double hi = dataMax;
+
+    if (!_historyZoomToData) {
+      if (limits != null) {
+        lo = math.min(lo, limits.min);
+        hi = math.max(hi, limits.max);
+      }
+
+      final floor = _historyMinSpan[sensorKey] ?? 1.0;
+
+      if (hi - lo < floor) {
+        final middle = (lo + hi) / 2;
+        lo = middle - floor / 2;
+        hi = middle + floor / 2;
+      }
+    }
+
+    if (hi - lo <= 0) {
+      lo -= 1;
+      hi += 1;
+    }
+
+    final pad = (hi - lo) * (_historyZoomToData ? 0.22 : 0.12);
+    lo -= pad;
+    hi += pad;
+
+    final interval = _niceInterval(hi - lo);
+
+    double niceLo = (lo / interval).floor() * interval;
+    final niceHi = (hi / interval).ceil() * interval;
+
+    // Only ORP can go below zero
+    if (sensorKey != 'orp' && niceLo < 0) niceLo = 0;
+
+    return (min: niceLo, max: niceHi, interval: interval);
+  }
+
+  // Latest / average / min / max, and how many readings were in the normal range
+  Widget _buildHistorySummary({
+    required String sensorKey,
+    required String sensorUnit,
+    required List<double> values, // oldest first
+    required ({double min, double max})? limits,
+  }) {
+    final decimals = _historyDecimals(sensorKey);
+
+    final latest = values.last;
+    final average = values.reduce((a, b) => a + b) / values.length;
+    final low = values.reduce(math.min);
+    final high = values.reduce(math.max);
+
+    String show(double v) => v.toStringAsFixed(decimals);
+
+    Widget stat(String label, String value) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: FarmTabTheme.font(
+                size: 11,
+                weight: FontWeight.w500,
+                color: FarmTabTheme.textM,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: FarmTabTheme.font(
+                size: 15,
+                weight: FontWeight.w700,
+                color: FarmTabTheme.textH,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final children = <Widget>[
+      Row(
+        children: [
+          stat('Latest', show(latest)),
+          stat('Average', show(average)),
+          stat('Lowest', show(low)),
+          stat('Highest', show(high)),
+        ],
+      ),
+    ];
+
+    if (limits != null) {
+      final total = values.length;
+      final outside = values
+          .where((v) => v < limits.min || v > limits.max)
+          .length;
+
+      final unitText = sensorUnit.isEmpty ? '' : ' $sensorUnit';
+      final rangeText =
+          '${_formatLimit(limits.min)} to ${_formatLimit(limits.max)}$unitText';
+
+      final allGood = outside == 0;
+      final color = allGood ? const Color(0xFF2A9D6B) : FarmTabTheme.amber;
+
+      final message = allGood
+          ? 'All $total readings were inside the normal range ($rangeText).'
+          : '$outside of $total readings '
+                '(${(100 * outside / total).round()}%) were outside the normal '
+                'range ($rangeText).';
+
+      children.add(const SizedBox(height: 12));
+      children.add(
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                allGood
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.info_outline_rounded,
+                size: 16,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: FarmTabTheme.font(
+                    size: 12,
+                    weight: FontWeight.w500,
+                    color: FarmTabTheme.textB,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+
   Widget _buildHistoryChart() {
     if (_isLoadingHistory) {
       return const SizedBox(
@@ -1750,20 +1981,36 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
 
     final sensorUnit = switch (_selectedHistorySensor) {
       0 => '',
-      1 => 'µS/cm',
-      2 => '°C',
+      1 => '\u00B5S/cm',
+      2 => '\u00B0C',
       3 => 'mV',
       _ => '',
     };
 
+    // The chart starts at midnight (local time) of the first selected day.
+    // X values are "milliseconds since then", so the day lines fall exactly on
+    // midnight and the time labels never overlap.
+    final rangeStart = DateTime(
+      _historyStartDate.year,
+      _historyStartDate.month,
+      _historyStartDate.day,
+    );
+    final rangeEnd = DateTime(
+      _historyEndDate.year,
+      _historyEndDate.month,
+      _historyEndDate.day,
+      23,
+      59,
+      59,
+    );
+    final totalRange = rangeEnd.difference(rangeStart);
+
     final spots = <FlSpot>[];
 
-    for (int i = 0; i < _sensorHistory.length; i++) {
-      final reading = _sensorHistory[i];
-
+    for (final reading in _sensorHistory) {
       final recordedAt = DateTime.tryParse(
         reading['recorded_at']?.toString() ?? '',
-      );
+      )?.toLocal();
 
       final value = double.tryParse(reading[sensorKey]?.toString() ?? '');
 
@@ -1771,7 +2018,9 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
         continue;
       }
 
-      spots.add(FlSpot(recordedAt.millisecondsSinceEpoch.toDouble(), value));
+      spots.add(
+        FlSpot(recordedAt.difference(rangeStart).inMilliseconds.toDouble(), value),
+      );
     }
 
     if (spots.isEmpty) {
@@ -1790,56 +2039,35 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
       );
     }
 
+    spots.sort((a, b) => a.x.compareTo(b.x));
+
     final values = spots.map((spot) => spot.y).toList();
+    final dataMin = values.reduce(math.min);
+    final dataMax = values.reduce(math.max);
 
-    double minY = values.reduce((a, b) => a < b ? a : b);
-    double maxY = values.reduce((a, b) => a > b ? a : b);
+    final limits = _limitsFor(sensorKey);
 
-    if (minY == maxY) {
-      minY -= 1;
-      maxY += 1;
-    } else {
-      final padding = (maxY - minY) * 0.22;
-      minY -= padding;
-      maxY += padding;
-    }
-
-    // ------------------------------------------------------------
-    // Axis range: always spans exactly the selected date range,
-    // starting at 00:00 of the start date, so the first tick the
-    // user sees on the left is midnight of the start date.
-    // ------------------------------------------------------------
-    final rangeStart = DateTime(
-      _historyStartDate.year,
-      _historyStartDate.month,
-      _historyStartDate.day,
+    final axis = _historyAxis(
+      sensorKey: sensorKey,
+      dataMin: dataMin,
+      dataMax: dataMax,
+      limits: limits,
     );
-    final rangeEnd = DateTime(
-      _historyEndDate.year,
-      _historyEndDate.month,
-      _historyEndDate.day,
-      23,
-      59,
-      59,
-    );
-    final totalRange = rangeEnd.difference(rangeStart);
 
-    final minX = rangeStart.millisecondsSinceEpoch.toDouble();
-    final maxX = rangeEnd.millisecondsSinceEpoch.toDouble();
+    final decimals = axis.interval >= 1 ? 0 : (axis.interval >= 0.1 ? 1 : 2);
 
+    const minX = 0.0;
+    final maxX = totalRange.inMilliseconds.toDouble();
     final axisIntervalMs = _niceAxisIntervalMs(totalRange);
 
-    // ------------------------------------------------------------
-    // Chart width scales with how many ticks the range will need,
-    // so short ranges fit the screen and long ranges scroll
-    // horizontally instead of squeezing labels on top of each
-    // other.
-    // ------------------------------------------------------------
+    // Wide enough to leave room for the labels; long ranges scroll sideways
     final tickCount = (totalRange.inMilliseconds / axisIntervalMs).ceil();
     const pixelsPerTick = 110.0;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final availableWidth = screenWidth - 100; // card padding + axis labels
     final chartWidth = math.max(availableWidth, tickCount * pixelsPerTick);
+
+    const lineColor = FarmTabTheme.fern;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1890,6 +2118,50 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
 
         const SizedBox(height: 14),
 
+        _buildHistorySummary(
+          sensorKey: sensorKey,
+          sensorUnit: sensorUnit,
+          values: values,
+          limits: limits,
+        ),
+
+        const SizedBox(height: 12),
+
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilterChip(
+            label: Text(
+              'Zoom in on changes',
+              style: FarmTabTheme.font(
+                size: 12,
+                weight: FontWeight.w600,
+                color: _historyZoomToData
+                    ? const Color(0xFF2A9D6B)
+                    : FarmTabTheme.textB,
+              ),
+            ),
+            selected: _historyZoomToData,
+            showCheckmark: false,
+            backgroundColor: const Color(0xFFF7F7F7),
+            selectedColor: const Color(0xFFE4F5EC),
+            side: BorderSide(
+              color: _historyZoomToData
+                  ? const Color(0xFF9ADDBB)
+                  : FarmTabTheme.border,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            onSelected: (value) {
+              setState(() {
+                _historyZoomToData = value;
+              });
+            },
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
         SizedBox(
           height: 340,
           child: SingleChildScrollView(
@@ -1901,14 +2173,46 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
                 LineChartData(
                   minX: minX,
                   maxX: maxX,
-                  minY: minY,
-                  maxY: maxY,
+                  minY: axis.min,
+                  maxY: axis.max,
+                  clipData: const FlClipData.all(),
+
+                  // The normal range is shaded, with a dashed line at each limit
+                  rangeAnnotations: limits == null
+                      ? const RangeAnnotations()
+                      : RangeAnnotations(
+                          horizontalRangeAnnotations: [
+                            HorizontalRangeAnnotation(
+                              y1: limits.min,
+                              y2: limits.max,
+                              color: FarmTabTheme.mint.withOpacity(0.2),
+                            ),
+                          ],
+                        ),
+                  extraLinesData: limits == null
+                      ? const ExtraLinesData()
+                      : ExtraLinesData(
+                          horizontalLines: [
+                            HorizontalLine(
+                              y: limits.min,
+                              color: FarmTabTheme.fern.withOpacity(0.55),
+                              strokeWidth: 1,
+                              dashArray: [6, 4],
+                            ),
+                            HorizontalLine(
+                              y: limits.max,
+                              color: FarmTabTheme.fern.withOpacity(0.55),
+                              strokeWidth: 1,
+                              dashArray: [6, 4],
+                            ),
+                          ],
+                        ),
 
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: true,
                     verticalInterval: axisIntervalMs,
-                    horizontalInterval: (maxY - minY) / 4,
+                    horizontalInterval: axis.interval,
                     getDrawingHorizontalLine: (value) =>
                         FlLine(color: FarmTabTheme.border, strokeWidth: 1),
                     getDrawingVerticalLine: (value) =>
@@ -1935,12 +2239,12 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 54,
-                        interval: (maxY - minY) / 4,
+                        interval: axis.interval,
                         getTitlesWidget: (value, meta) {
                           return Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: Text(
-                              value.toStringAsFixed(1),
+                              value.toStringAsFixed(decimals),
                               style: FarmTabTheme.font(
                                 size: 10.5,
                                 weight: FontWeight.w400,
@@ -1958,9 +2262,17 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
                         reservedSize: 30,
                         interval: axisIntervalMs,
                         getTitlesWidget: (value, meta) {
-                          final dateTime = DateTime.fromMillisecondsSinceEpoch(
-                            value.toInt(),
-                          ).toLocal();
+                          // Label only the real tick marks, not the odd end
+                          // point of the range
+                          final offset = value % axisIntervalMs;
+
+                          if (offset > 1 && axisIntervalMs - offset > 1) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final dateTime = rangeStart.add(
+                            Duration(milliseconds: value.round()),
+                          );
 
                           return SideTitleWidget(
                             meta: meta,
@@ -1981,23 +2293,32 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
                   lineTouchData: LineTouchData(
                     enabled: true,
                     touchTooltipData: LineTouchTooltipData(
-                      // Keeps the tooltip fully inside the chart's
-                      // drawing area, nudging it down/sideways when
-                      // the touched point is close to an edge —
-                      // this is what stops the tooltip from getting
-                      // clipped off when a point is near the top.
+                      // Keeps the tooltip fully inside the chart's drawing area
                       fitInsideVertically: true,
                       fitInsideHorizontally: true,
                       getTooltipItems: (touchedSpots) {
                         return touchedSpots.map((spot) {
-                          final dateTime = DateTime.fromMillisecondsSinceEpoch(
-                            spot.x.toInt(),
-                          ).toLocal();
+                          final dateTime = rangeStart.add(
+                            Duration(milliseconds: spot.x.toInt()),
+                          );
+
+                          String status = '';
+
+                          if (limits != null) {
+                            if (spot.y > limits.max) {
+                              status = '\nToo high';
+                            } else if (spot.y < limits.min) {
+                              status = '\nToo low';
+                            } else {
+                              status = '\nNormal';
+                            }
+                          }
 
                           return LineTooltipItem(
                             '${_formatHistoryTooltipDate(dateTime)}\n'
                             '${spot.y.toStringAsFixed(2)}'
-                            '${sensorUnit.isNotEmpty ? ' $sensorUnit' : ''}',
+                            '${sensorUnit.isNotEmpty ? ' $sensorUnit' : ''}'
+                            '$status',
                             FarmTabTheme.font(
                               size: 12,
                               weight: FontWeight.w600,
@@ -2013,15 +2334,23 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
                     LineChartBarData(
                       spots: spots,
                       isCurved: true,
-                      curveSmoothness: 0.2,
-                      color: FarmTabTheme.grove,
+                      curveSmoothness: 0.15,
+                      preventCurveOverShooting: true,
+                      color: lineColor,
                       barWidth: 2.5,
                       dotData: FlDotData(
-                        show: true,
+                        // With many readings, dots would only clutter the line
+                        show: spots.length <= 72,
                         getDotPainter: (spot, percent, bar, index) {
+                          final outside =
+                              limits != null &&
+                              (spot.y < limits.min || spot.y > limits.max);
+
                           return FlDotCirclePainter(
                             radius: 3,
-                            color: FarmTabTheme.grove,
+                            color: outside
+                                ? FarmTabTheme.alertRed
+                                : FarmTabTheme.fern,
                             strokeWidth: 1.5,
                             strokeColor: FarmTabTheme.white,
                           );
@@ -2033,7 +2362,7 @@ class _ShelfDetailPageState extends State<ShelfDetailPage>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            FarmTabTheme.mint.withOpacity(0.35),
+                            FarmTabTheme.mint.withOpacity(0.30),
                             FarmTabTheme.mint.withOpacity(0.0),
                           ],
                         ),
